@@ -168,6 +168,34 @@ export const PreBriefDraftSchema = PreBriefSchema.extend({
   findings: z.array(FindingSchema.omit({ status: true, clinicianEdit: true })),
 });
 
+/**
+ * What the client posts to POST /api/debrief: the pre-brief as the clinician
+ * finalised it. Dismissed and still-unverified findings are gone; every finding
+ * that remains has been accepted or edited, and its `rationale` holds the text
+ * the clinician settled on.
+ */
+export const FinalisedPreBriefSchema = PreBriefSchema.extend({
+  findings: z.array(FindingSchema.extend({ status: z.enum(["accepted", "edited"]) })),
+});
+
+// ===========================================================================
+// Member-facing debrief - AI-produced, schema-validated like the pre-brief.
+// Written in a calm, plain-language, on-your-side voice, second person.
+// ===========================================================================
+
+export const DebriefSchema = z.object({
+  memberId: z.string(),
+  greeting: z.string().min(1),
+  summary: z.string().min(1),
+  whatsGood: z.array(z.string()),
+  whatToWatch: z.array(z.string()),
+  actionPlan: z.array(z.string()),
+  closing: z.string().min(1),
+});
+
+/** The shape the model returns; `memberId` is applied on our side. */
+export const DebriefDraftSchema = DebriefSchema.omit({ memberId: true });
+
 // ===========================================================================
 // Audit trail (non-negotiable #5).
 // ===========================================================================

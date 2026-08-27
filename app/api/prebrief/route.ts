@@ -30,6 +30,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No such member." }, { status: 404 });
   }
 
+  const generatedAt = new Date().toISOString();
+
   if (!process.env.ANTHROPIC_API_KEY) {
     const sample = getSamplePreBrief(member.id);
     if (!sample) {
@@ -38,12 +40,12 @@ export async function POST(request: Request) {
         { status: 503 },
       );
     }
-    return NextResponse.json({ prebrief: sample, generated: false });
+    return NextResponse.json({ prebrief: sample, generated: false, generatedAt });
   }
 
   try {
     const prebrief = await generatePreBrief(member);
-    return NextResponse.json({ prebrief, generated: true });
+    return NextResponse.json({ prebrief, generated: true, generatedAt });
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) {
       return NextResponse.json(

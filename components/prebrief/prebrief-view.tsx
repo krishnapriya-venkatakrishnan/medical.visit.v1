@@ -79,6 +79,7 @@ export function PreBriefView({ member }: { member: Member }) {
 
           <div className="mt-12">
             <SignOffBar
+              memberId={member.id}
               total={pb.total}
               resolvedCount={pb.resolvedCount}
               canSignOff={pb.canSignOff}

@@ -18,6 +18,9 @@ import type {
   DeltaSchema,
   PreBriefSchema,
   PreBriefDraftSchema,
+  FinalisedPreBriefSchema,
+  DebriefSchema,
+  DebriefDraftSchema,
   AuditEventSchema,
 } from "@/lib/schemas";
 
@@ -34,6 +37,11 @@ export type Finding = z.infer<typeof FindingSchema>;
 export type Delta = z.infer<typeof DeltaSchema>;
 export type PreBrief = z.infer<typeof PreBriefSchema>;
 export type PreBriefDraft = z.infer<typeof PreBriefDraftSchema>;
+export type FinalisedPreBrief = z.infer<typeof FinalisedPreBriefSchema>;
+
+// Member-facing debrief.
+export type Debrief = z.infer<typeof DebriefSchema>;
+export type DebriefDraft = z.infer<typeof DebriefDraftSchema>;
 
 // Audit trail.
 export type AuditEvent = z.infer<typeof AuditEventSchema>;

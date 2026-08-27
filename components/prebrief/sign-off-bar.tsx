@@ -1,17 +1,22 @@
 "use client";
 
+import Link from "next/link";
+
 /**
  * The sign-off gate. The pre-brief cannot be finalised until every finding is
  * resolved. This bar is the product's spine made visible: it always shows how
- * many findings remain, and the button is inert until none do.
+ * many findings remain, and the button is inert until none do. Once signed off
+ * it points to the member debrief.
  */
 export function SignOffBar({
+  memberId,
   total,
   resolvedCount,
   canSignOff,
   isSignedOff,
   onSignOff,
 }: {
+  memberId: string;
   total: number;
   resolvedCount: number;
   canSignOff: boolean;
@@ -37,9 +42,12 @@ export function SignOffBar({
         </div>
 
         {isSignedOff ? (
-          <span className="text-sm text-muted">
-            Debrief drafting arrives in Stage 5.
-          </span>
+          <Link
+            href={`/members/${memberId}/debrief`}
+            className="rounded-control bg-ink px-4 py-2 text-sm font-medium text-bg"
+          >
+            Draft member debrief
+          </Link>
         ) : (
           <button
             type="button"

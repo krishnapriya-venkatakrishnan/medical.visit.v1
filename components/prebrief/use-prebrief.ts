@@ -7,8 +7,8 @@
  *                                  mutated. Shared with the Member Board card.
  *   ["prebrief-actions", memberId] the clinician's decision per finding, layered
  *                                  on top of the AI output.
- *   ["prebrief-audit", memberId]   an append-only log of every action (Stage 5's
- *                                  Audit Trail reads this).
+ *   ["prebrief-audit", memberId]   an append-only log: system suggestions +
+ *                                  every clinician action. The Audit Trail reads it.
  *   ["prebrief-signoff", memberId] whether the pre-brief has been signed off.
  *
  * Keeping the AI output immutable and the clinician layer separate mirrors how
@@ -16,10 +16,11 @@
  * disposal is fully logged.
  */
 
-import { useCallback, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchPreBrief, prebriefQueryKey } from "@/lib/api";
-import type { AuditEvent, Finding, FindingStatus, PreBrief } from "@/lib/types";
+import { auditKey, recordClinicianEvent, seedSystemEvent } from "@/lib/audit-cache";
+import type { AuditEvent, Finding, FindingStatus, FinalisedPreBrief, PreBrief } from "@/lib/types";
 
 export type ClinicianDecision = {
   status: Exclude<FindingStatus, "unverified">;
@@ -30,7 +31,6 @@ type ActionMap = Record<string, ClinicianDecision>;
 
 const keys = {
   actions: (id: string) => ["prebrief-actions", id] as const,
-  audit: (id: string) => ["prebrief-audit", id] as const,
   signoff: (id: string) => ["prebrief-signoff", id] as const,
 };
 
@@ -64,7 +64,7 @@ export function usePreBrief(memberId: string) {
   });
 
   const auditQuery = useQuery({
-    queryKey: keys.audit(memberId),
+    queryKey: auditKey(memberId),
     queryFn: async (): Promise<AuditEvent[]> => [],
     initialData: [] as AuditEvent[],
     staleTime: Infinity,
@@ -77,15 +77,17 @@ export function usePreBrief(memberId: string) {
     staleTime: Infinity,
   });
 
-  const appendAudit = useCallback(
-    (action: string, targetId: string) => {
-      qc.setQueryData<AuditEvent[]>(keys.audit(memberId), (prev = []) => [
-        ...prev,
-        { at: new Date().toISOString(), actor: "clinician", action, targetId },
-      ]);
-    },
-    [qc, memberId],
-  );
+  const prebrief: PreBrief | undefined = prebriefQuery.data?.prebrief;
+  const generatedAt = prebriefQuery.data?.generatedAt;
+
+  // Record what the system proposed, once, as soon as the pre-brief arrives.
+  useEffect(() => {
+    if (!prebrief || !generatedAt) return;
+    seedSystemEvent(qc, memberId, "Generated pre-brief", memberId, generatedAt);
+    for (const f of prebrief.findings) {
+      seedSystemEvent(qc, memberId, `Suggested finding: ${f.title}`, f.id, generatedAt);
+    }
+  }, [qc, memberId, prebrief, generatedAt]);
 
   const decide = useMutation({
     mutationFn: async (input: { findingId: string; decision: ClinicianDecision }) => input,
@@ -94,7 +96,7 @@ export function usePreBrief(memberId: string) {
         ...prev,
         [findingId]: decision,
       }));
-      appendAudit(decisionVerb(decision), findingId);
+      recordClinicianEvent(qc, memberId, decisionVerb(decision), findingId);
     },
   });
 
@@ -106,7 +108,7 @@ export function usePreBrief(memberId: string) {
         delete next[findingId];
         return next;
       });
-      appendAudit("Reopened finding", findingId);
+      recordClinicianEvent(qc, memberId, "Reopened finding", findingId);
     },
   });
 
@@ -114,11 +116,10 @@ export function usePreBrief(memberId: string) {
     mutationFn: async () => true,
     onSuccess: () => {
       qc.setQueryData<boolean>(keys.signoff(memberId), true);
-      appendAudit("Signed off pre-brief", memberId);
+      recordClinicianEvent(qc, memberId, "Signed off pre-brief", memberId);
     },
   });
 
-  const prebrief: PreBrief | undefined = prebriefQuery.data?.prebrief;
   const actions = actionsQuery.data;
 
   const findings: ResolvedFinding[] = useMemo(() => {
@@ -140,6 +141,27 @@ export function usePreBrief(memberId: string) {
 
   const unresolvedCount = findings.filter((f) => f.status === "unverified").length;
   const total = findings.length;
+  const isSignedOff = signoffQuery.data;
+
+  // The pre-brief as the clinician finalised it: only accepted/edited findings,
+  // with the settled text in `rationale`. Non-null once signed off.
+  const finalised: FinalisedPreBrief | null = useMemo(() => {
+    if (!prebrief || !isSignedOff) return null;
+    return {
+      ...prebrief,
+      findings: findings
+        .filter((f) => f.status === "accepted" || f.status === "edited")
+        .map((f) => ({
+          id: f.id,
+          title: f.title,
+          rationale: f.displayText,
+          riskTier: f.riskTier,
+          provenance: f.provenance,
+          status: f.status as "accepted" | "edited",
+          ...(f.clinicianEdit ? { clinicianEdit: f.clinicianEdit } : {}),
+        })),
+    };
+  }, [prebrief, isSignedOff, findings]);
 
   return {
     prebrief,
@@ -150,12 +172,13 @@ export function usePreBrief(memberId: string) {
     refetch: prebriefQuery.refetch,
 
     findings,
+    finalised,
     audit: auditQuery.data,
-    isSignedOff: signoffQuery.data,
+    isSignedOff,
     unresolvedCount,
     resolvedCount: total - unresolvedCount,
     total,
-    canSignOff: unresolvedCount === 0 && !signoffQuery.data,
+    canSignOff: unresolvedCount === 0 && !isSignedOff,
 
     decide: (findingId: string, decision: ClinicianDecision) =>
       decide.mutate({ findingId, decision }),
