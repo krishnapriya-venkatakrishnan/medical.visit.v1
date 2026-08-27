@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPreBrief, prebriefQueryKey } from "@/lib/api";
+import { ErrorPanel } from "@/components/ui/error-panel";
 
 export interface MemberCardData {
   id: string;
@@ -50,7 +51,7 @@ export function MemberCard({ id, displayName, firstVisit, lastScanLabel }: Membe
             <div className="h-3.5 w-2/3 rounded bg-surface-sunken" />
           </div>
         ) : query.isError ? (
-          <p className="text-sm text-muted">Pre-brief unavailable</p>
+          <ErrorPanel compact title="Pre-brief unavailable" />
         ) : (
           <p className="flex gap-2 text-[0.95rem] leading-6 text-provisional-fg">
             <span

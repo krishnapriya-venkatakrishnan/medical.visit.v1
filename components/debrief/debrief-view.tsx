@@ -9,6 +9,7 @@ import { DebriefDocument } from "./debrief-document";
 import { DebriefEditor } from "./debrief-editor";
 import { FlywheelDiff } from "./flywheel-diff";
 import { AuditTrail } from "@/components/audit/audit-trail";
+import { ErrorPanel } from "@/components/ui/error-panel";
 
 export function DebriefView({ member }: { member: Member }) {
   const pb = usePreBrief(member.id);
@@ -46,18 +47,12 @@ export function DebriefView({ member }: { member: Member }) {
           <div className="h-64 w-full rounded-card bg-surface-sunken" />
         </div>
       ) : db.isError ? (
-        <div className="mt-10 rounded-card border border-risk-priority-tint bg-risk-priority-tint p-6">
-          <p className="text-sm font-medium text-risk-priority-fg">
-            The debrief could not be generated.
-          </p>
-          <p className="mt-1 text-sm text-risk-priority-fg">{db.error?.message}</p>
-          <button
-            type="button"
-            onClick={() => db.refetch()}
-            className="mt-4 rounded-control bg-ink px-3 py-1.5 text-xs font-medium text-bg"
-          >
-            Try again
-          </button>
+        <div className="mt-10">
+          <ErrorPanel
+            title="The debrief could not be generated."
+            message={db.error?.message}
+            onRetry={() => db.refetch()}
+          />
         </div>
       ) : db.current && db.draft ? (
         <div className="mt-8 space-y-12">

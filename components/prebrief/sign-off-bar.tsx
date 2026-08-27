@@ -25,7 +25,7 @@ export function SignOffBar({
 }) {
   return (
     <div className="sticky bottom-0 z-10 -mx-6 border-t border-hairline bg-bg/90 px-6 py-4 backdrop-blur">
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="text-sm">
           {isSignedOff ? (
             <span className="font-medium text-risk-good-fg">Pre-brief signed off</span>

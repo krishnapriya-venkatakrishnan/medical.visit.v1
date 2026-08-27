@@ -23,15 +23,23 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
 
   const shell = isUnverified
     ? "border-provisional-border bg-provisional-tint"
-    : isDismissed
-      ? "border-hairline bg-surface"
-      : "border-hairline bg-surface";
+    : "border-hairline bg-surface";
+
+  // The periwinkle -> ink resolve is animated: when a finding is accepted or
+  // edited, colour eases from the provisional state to confirmed ink rather
+  // than snapping.
+  const transition =
+    "transition-[background-color,border-color,color,opacity] duration-500 ease-out motion-reduce:transition-none";
 
   return (
-    <article className={`rounded-card border p-5 shadow-sm ${shell} ${isDismissed ? "opacity-70" : ""}`}>
+    <article
+      className={`rounded-card border p-5 shadow-sm ${transition} ${shell} ${
+        isDismissed ? "opacity-70" : ""
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <h3
-          className={`text-base font-semibold ${
+          className={`text-base font-semibold ${transition} ${
             isUnverified ? "text-provisional-fg" : "text-ink"
           } ${isDismissed ? "line-through" : ""}`}
         >
@@ -92,7 +100,7 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
         </div>
       ) : (
         <p
-          className={`mt-3 text-sm leading-6 ${
+          className={`mt-3 text-sm leading-6 ${transition} ${
             isUnverified ? "text-provisional-fg" : "text-ink"
           }`}
         >

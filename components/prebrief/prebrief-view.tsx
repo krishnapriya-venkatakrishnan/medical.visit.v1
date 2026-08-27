@@ -9,6 +9,7 @@ import { GuidanceSection } from "./guidance-section";
 import { SignOffBar } from "./sign-off-bar";
 import { ActivityList } from "./activity-list";
 import { PreBriefSkeleton } from "./prebrief-skeleton";
+import { ErrorPanel } from "@/components/ui/error-panel";
 
 export function PreBriefView({ member }: { member: Member }) {
   const pb = usePreBrief(member.id);
@@ -40,20 +41,12 @@ export function PreBriefView({ member }: { member: Member }) {
       {pb.isLoading ? (
         <PreBriefSkeleton />
       ) : pb.isError ? (
-        <div className="mt-10 rounded-card border border-risk-priority-tint bg-risk-priority-tint p-6">
-          <p className="text-sm font-medium text-risk-priority-fg">
-            The pre-brief could not be generated.
-          </p>
-          <p className="mt-1 text-sm text-risk-priority-fg">
-            {pb.error?.message ?? "Something went wrong."}
-          </p>
-          <button
-            type="button"
-            onClick={() => pb.refetch()}
-            className="mt-4 rounded-control bg-ink px-3 py-1.5 text-xs font-medium text-bg"
-          >
-            Try again
-          </button>
+        <div className="mt-10">
+          <ErrorPanel
+            title="The pre-brief could not be generated."
+            message={pb.error?.message}
+            onRetry={() => pb.refetch()}
+          />
         </div>
       ) : pb.prebrief ? (
         <>
