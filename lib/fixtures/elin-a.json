@@ -1,0 +1,113 @@
+{
+  "id": "elin-a",
+  "displayName": "Elin A.",
+  "firstVisit": false,
+  "scans": [
+    {
+      "date": "2023-08-10",
+      "skin": { "molesTracked": 11, "flagged": [] },
+      "heart": {
+        "restingHr": 60,
+        "bpSystolic": 116,
+        "bpDiastolic": 74,
+        "ecgNotes": "Normal sinus rhythm. No conduction abnormalities.",
+        "arterialStiffness": 5.9
+      },
+      "blood": {
+        "ldl": 2.9,
+        "hdl": 1.7,
+        "triglycerides": 0.9,
+        "hba1c": 33,
+        "crp": 0.6,
+        "fastingGlucose": 4.9
+      },
+      "body": { "visceralFatIndex": 4, "bodyFatPct": 25, "gripStrengthKg": 33 },
+      "wearables": { "avgSteps": 8200, "avgSleepHrs": 7.1, "hrv": 46 }
+    },
+    {
+      "date": "2024-08-14",
+      "skin": { "molesTracked": 11, "flagged": [] },
+      "heart": {
+        "restingHr": 61,
+        "bpSystolic": 117,
+        "bpDiastolic": 75,
+        "ecgNotes": "Normal sinus rhythm. No conduction abnormalities.",
+        "arterialStiffness": 6.0
+      },
+      "blood": {
+        "ldl": 3.0,
+        "hdl": 1.7,
+        "triglycerides": 1.0,
+        "hba1c": 34,
+        "crp": 0.7,
+        "fastingGlucose": 5.0
+      },
+      "body": { "visceralFatIndex": 4, "bodyFatPct": 25, "gripStrengthKg": 33 },
+      "wearables": { "avgSteps": 8400, "avgSleepHrs": 7.2, "hrv": 47 }
+    },
+    {
+      "date": "2025-08-19",
+      "skin": {
+        "molesTracked": 12,
+        "flagged": [
+          {
+            "id": "elin-mole-1",
+            "location": "left shoulder blade",
+            "diameterMm": 4.8,
+            "changeMm": 0.1,
+            "notes": "Regular border, uniform light-brown colour. Added to tracking this visit."
+          }
+        ]
+      },
+      "heart": {
+        "restingHr": 62,
+        "bpSystolic": 118,
+        "bpDiastolic": 76,
+        "ecgNotes": "Normal sinus rhythm.",
+        "arterialStiffness": 6.1
+      },
+      "blood": {
+        "ldl": 3.2,
+        "hdl": 1.6,
+        "triglycerides": 1.1,
+        "hba1c": 34,
+        "crp": 0.8,
+        "fastingGlucose": 5.1
+      },
+      "body": { "visceralFatIndex": 4, "bodyFatPct": 26, "gripStrengthKg": 32 },
+      "wearables": { "avgSteps": 8600, "avgSleepHrs": 7.2, "hrv": 48 }
+    },
+    {
+      "date": "2026-08-27",
+      "skin": {
+        "molesTracked": 12,
+        "flagged": [
+          {
+            "id": "elin-mole-1",
+            "location": "left shoulder blade",
+            "diameterMm": 5.2,
+            "changeMm": 0.4,
+            "notes": "Border still regular, colour uniform. Diameter increased 0.4mm since last visit; recommend dermoscopy review."
+          }
+        ]
+      },
+      "heart": {
+        "restingHr": 62,
+        "bpSystolic": 120,
+        "bpDiastolic": 78,
+        "ecgNotes": "Normal sinus rhythm.",
+        "arterialStiffness": 6.3
+      },
+      "blood": {
+        "ldl": 3.4,
+        "hdl": 1.6,
+        "triglycerides": 1.1,
+        "hba1c": 35,
+        "crp": 0.9,
+        "fastingGlucose": 5.2
+      },
+      "body": { "visceralFatIndex": 4, "bodyFatPct": 26, "gripStrengthKg": 32 },
+      "wearables": { "avgSteps": 8700, "avgSleepHrs": 7.3, "hrv": 49 }
+    }
+  ]
+}

@@ -2,14 +2,12 @@
 
 # Brief - Clinician Workspace - Project Constitution
 
-> Replace this file with your exact constitution paste if it differs. The
-> non-negotiables below are the spine of the product.
-
 ## Mission
 
 A working prototype of the software behind a preventive-health visit: AI-generated
-pre-brief → clinician-in-the-loop review → drafted member debrief. Built the way a
-regulated-systems engineer would build clinical AI.
+pre-brief, then clinician-in-the-loop review where the clinician is always the
+decision-maker, then a drafted member debrief. Built the way a regulated-systems
+engineer would build clinical AI.
 
 ## Non-negotiables (these define the product - never violate)
 
@@ -33,37 +31,37 @@ Zod · Anthropic API (server-side only). Deploy: Vercel.
 
 ## Design
 
-Light, warm, clinical-calm - "elegant day spa meets futuristic clinic." Restraint,
-whitespace, humanist type (Hanken Grotesk). No dark-dashboard aesthetic. Light
-theme only.
+Light, warm, clinical-calm palette: "elegant day spa meets futuristic clinic,"
+light and muted. Restraint, whitespace, humanist type (Hanken Grotesk). No
+dark-dashboard aesthetic. Light theme only.
 
 `--provisional` (periwinkle `#8C8CE6`) is RESERVED for unverified AI state only,
-never for decoration or focus rings. Machine-drafted findings render in periwinkle
-until the clinician accepts or edits, at which point they resolve to confirmed ink
-(`--ink`). The signature colour encodes the clinician-in-the-loop safety model.
+never for decoration or focus rings. Every machine-drafted finding renders in
+periwinkle until the clinician accepts or edits it, at which point it resolves to
+confirmed ink (`--ink`). The signature colour encodes the clinician-in-the-loop
+safety model.
 
-Tokens live in `app/globals.css` as CSS variables and are exposed to Tailwind via
+Tokens live in `app/globals.css` as CSS variables, exposed to Tailwind via
 `@theme`:
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--bg` | `#F6F4EF` | warm bone - app background |
+| `--bg` | `#F6F4EF` | warm bone, app background |
 | `--surface` | `#FFFFFF` | cards, panels (soft low shadow) |
 | `--ink` | `#20201D` | primary text; = clinician-confirmed state |
 | `--muted` | `#6B6A64` | secondary text, audit lines |
-| `--accent` | `#2E7D6B` | sage/teal - used sparingly; focus ring |
-| `--provisional` | `#8C8CE6` | periwinkle - unverified AI only |
+| `--accent` | `#2E7D6B` | restrained sage/teal, used sparingly; focus ring |
+| `--provisional` | `#8C8CE6` | periwinkle, unverified AI only |
 
-Risk tiers (muted, not ER-loud), each with `-solid` / `-fg` / `-tint`:
-`good` sage · `watch` soft amber · `elevated` warm ochre · `priority` clay-red.
-
-Radii 16-20px (`--radius-card` 18px). Type: Hanken Grotesk, generous line-height,
-`tabular-nums` for all data values.
+Risk tiers, muted not ER-loud, each with `-solid` / `-fg` / `-tint`:
+`watch` soft amber · `elevated` warm ochre · `priority` restrained clay-red ·
+`good` sage green. Large radii (16-20px, `--radius-card` 18px). `tabular-nums`
+for every numeric value.
 
 ## Conventions
 
-- Strict TypeScript, **no `any`**. Zod schemas (`lib/schemas`) are the source of
-  truth for AI I/O - derive types with `z.infer`, never hand-write them.
+- Strict TypeScript, **no `any`**. Zod schemas (`lib/schemas.ts`) are the source
+  of truth for AI I/O; derive types with `z.infer`, never hand-write them.
 - `ANTHROPIC_API_KEY` server-side only; never expose to client. `lib/ai` is
   `import "server-only"`.
 - Small, well-named modules. The prompt+schema module is heavily commented;
@@ -71,19 +69,20 @@ Radii 16-20px (`--radius-card` 18px). Type: Hanken Grotesk, generous line-height
 - Every screen has explicit loading / empty / error states.
 - Primary button = `--ink` fill / `--bg` text. `--accent` only for links and
   low-emphasis affordances. Periwinkle is never a UI affordance.
-- **No em dashes (`—`) or en dashes (`–`)** anywhere - not in UI copy, not in
+- **No em dashes (`—`) or en dashes (`–`)** anywhere: not in UI copy, not in
   code, comments, or docs. Use a comma, a period, or a hyphen with spaces.
+- Commit messages carry no `Co-Authored-By` trailer and no tool attribution.
 
 ## Folder structure
 
 ```
-app/          routes, layout, providers
-components/    presentational + interactive UI
+app/            routes, root layout, client providers
+components/      presentational + interactive UI
 lib/
-  types/      shared domain types
-  schemas/    Zod schemas - source of truth for AI I/O
-  ai/         AI boundary, SERVER ONLY
-  fixtures/   synthetic data
+  types.ts      shared domain types (inferred from schemas)
+  schemas.ts    Zod schemas - source of truth for AI I/O
+  ai/           the AI boundary, SERVER ONLY (import "server-only")
+  fixtures/     synthetic member records (JSON) + loader
 ```
 
 ## Out of scope (on purpose - note in README)

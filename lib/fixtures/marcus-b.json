@@ -1,0 +1,28 @@
+{
+  "id": "marcus-b",
+  "displayName": "Marcus B.",
+  "firstVisit": true,
+  "scans": [
+    {
+      "date": "2026-08-27",
+      "skin": { "molesTracked": 8, "flagged": [] },
+      "heart": {
+        "restingHr": 76,
+        "bpSystolic": 138,
+        "bpDiastolic": 89,
+        "ecgNotes": "Normal sinus rhythm. No acute ST-T changes.",
+        "arterialStiffness": 9.6
+      },
+      "blood": {
+        "ldl": 3.7,
+        "hdl": 1.05,
+        "triglycerides": 2.1,
+        "hba1c": 39,
+        "crp": 2.9,
+        "fastingGlucose": 5.7
+      },
+      "body": { "visceralFatIndex": 14, "bodyFatPct": 30, "gripStrengthKg": 44 },
+      "wearables": { "avgSteps": 4300, "avgSleepHrs": 6.1, "hrv": 33 }
+    }
+  ]
+}

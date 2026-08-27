@@ -1,3 +1,5 @@
+import { getMembers } from "@/lib/fixtures";
+
 const FLOW = [
   {
     step: "01",
@@ -34,6 +36,8 @@ const RISK_TIERS = [
 ] as const;
 
 export default function Home() {
+  const members = getMembers();
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-16 sm:py-24">
       <header className="max-w-2xl">
@@ -95,7 +99,15 @@ export default function Home() {
       </section>
 
       <footer className="mt-16 border-t border-hairline pt-6 text-sm text-muted">
-        Stage 0 - styled, running shell. No features yet.
+        Stage 1 · <span className="tnum">{members.length}</span> synthetic members loaded and
+        schema-validated:{" "}
+        {members.map((m, i) => (
+          <span key={m.id}>
+            {i > 0 ? ", " : ""}
+            {m.displayName} ({m.firstVisit ? "first visit" : `${m.scans.length} scans`})
+          </span>
+        ))}
+        .
       </footer>
     </main>
   );

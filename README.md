@@ -35,11 +35,25 @@ Scripts: `npm run dev` · `npm run build` · `npm run start` · `npm run lint` �
 app/          routes, root layout, client providers
 components/    UI components
 lib/
-  types/      shared domain types
-  schemas/    Zod schemas - the source of truth for all AI input/output
+  types.ts    shared domain types (inferred from the schemas)
+  schemas.ts  Zod schemas - the source of truth for the data model and AI I/O
   ai/         the AI boundary - SERVER ONLY (import "server-only")
-  fixtures/   synthetic data
+  fixtures/   three synthetic member records (JSON) + a validating loader
 ```
+
+## Data model
+
+`lib/schemas.ts` defines the longitudinal member record (`Member` -> `Scan` ->
+skin / heart / blood / body / wearables) and the AI-produced `PreBrief`
+(`Delta`s, risk-ranked `Finding`s, talking points, draft action plan). Findings
+and deltas each require a non-empty `provenance` array pointing back to the exact
+measurement that produced them. Types are derived from the schemas with
+`z.infer`.
+
+Fixtures (`lib/fixtures/`) are parsed against `MemberSchema` at load, so a
+malformed record fails the build. Three members: **Elin A.** (returning; a
+tracked mole grew and LDL is creeping), **Marcus B.** (first visit; high visceral
+fat and borderline BP), **Priya C.** (returning; broad improvement over a year).
 
 ## Out of scope (on purpose)
 
