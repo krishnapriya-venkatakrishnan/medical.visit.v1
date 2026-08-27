@@ -3,22 +3,22 @@
 /**
  * Clinician-in-the-loop state for one pre-brief, held in the TanStack Query cache.
  *
- * Three cache entries, deliberately separate:
- *   ["prebrief", memberId]         the AI output (Stage 3: the sample; Stage 4:
- *                                  the response from /api/prebrief). Never mutated.
+ *   ["prebrief", memberId]         the AI output from POST /api/prebrief. Never
+ *                                  mutated. Shared with the Member Board card.
  *   ["prebrief-actions", memberId] the clinician's decision per finding, layered
  *                                  on top of the AI output.
- *   ["prebrief-audit", memberId]   an append-only log of every action (the
- *                                  Stage 5 Audit Trail reads this).
+ *   ["prebrief-audit", memberId]   an append-only log of every action (Stage 5's
+ *                                  Audit Trail reads this).
  *   ["prebrief-signoff", memberId] whether the pre-brief has been signed off.
  *
  * Keeping the AI output immutable and the clinician layer separate mirrors how
- * Stage 4/5 work: the model proposes, the human disposes, and the disposal is
- * fully logged.
+ * the real flow works: the model proposes, the clinician disposes, and the
+ * disposal is fully logged.
  */
 
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchPreBrief, prebriefQueryKey } from "@/lib/api";
 import type { AuditEvent, Finding, FindingStatus, PreBrief } from "@/lib/types";
 
 export type ClinicianDecision = {
@@ -29,7 +29,6 @@ export type ClinicianDecision = {
 type ActionMap = Record<string, ClinicianDecision>;
 
 const keys = {
-  prebrief: (id: string) => ["prebrief", id] as const,
   actions: (id: string) => ["prebrief-actions", id] as const,
   audit: (id: string) => ["prebrief-audit", id] as const,
   signoff: (id: string) => ["prebrief-signoff", id] as const,
@@ -46,16 +45,15 @@ export interface ResolvedFinding extends Finding {
   displayText: string;
 }
 
-export function usePreBrief(memberId: string, sample: PreBrief) {
+const EMPTY_FINDINGS: ResolvedFinding[] = [];
+
+export function usePreBrief(memberId: string) {
   const qc = useQueryClient();
 
-  // Stage 4 replaces this queryFn with a fetch to /api/prebrief. Until then the
-  // sample is both the initialData and what the queryFn returns.
   const prebriefQuery = useQuery({
-    queryKey: keys.prebrief(memberId),
-    queryFn: async (): Promise<PreBrief> => sample,
-    initialData: sample,
-    staleTime: Infinity,
+    queryKey: prebriefQueryKey(memberId),
+    queryFn: () => fetchPreBrief(memberId),
+    staleTime: 5 * 60_000,
   });
 
   const actionsQuery = useQuery({
@@ -89,8 +87,6 @@ export function usePreBrief(memberId: string, sample: PreBrief) {
     [qc, memberId],
   );
 
-  // Stage 4/5 give this mutation a real mutationFn (POST the decision). For now
-  // it just updates the cache and the audit log.
   const decide = useMutation({
     mutationFn: async (input: { findingId: string; decision: ClinicianDecision }) => input,
     onSuccess: ({ findingId, decision }) => {
@@ -122,11 +118,13 @@ export function usePreBrief(memberId: string, sample: PreBrief) {
     },
   });
 
+  const prebrief: PreBrief | undefined = prebriefQuery.data?.prebrief;
   const actions = actionsQuery.data;
 
-  const resolvedFindings: ResolvedFinding[] = useMemo(() => {
+  const findings: ResolvedFinding[] = useMemo(() => {
+    if (!prebrief) return EMPTY_FINDINGS;
     const order: Record<Finding["riskTier"], number> = { priority: 0, elevated: 1, watch: 2 };
-    return [...prebriefQuery.data.findings]
+    return [...prebrief.findings]
       .map((f): ResolvedFinding => {
         const decision = actions[f.id];
         if (!decision) return { ...f, displayText: f.rationale };
@@ -138,20 +136,27 @@ export function usePreBrief(memberId: string, sample: PreBrief) {
         };
       })
       .sort((a, b) => order[a.riskTier] - order[b.riskTier]);
-  }, [prebriefQuery.data.findings, actions]);
+  }, [prebrief, actions]);
 
-  const unresolvedCount = resolvedFindings.filter((f) => f.status === "unverified").length;
-  const total = resolvedFindings.length;
+  const unresolvedCount = findings.filter((f) => f.status === "unverified").length;
+  const total = findings.length;
 
   return {
-    prebrief: prebriefQuery.data,
-    findings: resolvedFindings,
+    prebrief,
+    generated: prebriefQuery.data?.generated ?? false,
+    isLoading: prebriefQuery.isPending,
+    isError: prebriefQuery.isError,
+    error: prebriefQuery.error as Error | null,
+    refetch: prebriefQuery.refetch,
+
+    findings,
     audit: auditQuery.data,
     isSignedOff: signoffQuery.data,
     unresolvedCount,
     resolvedCount: total - unresolvedCount,
     total,
     canSignOff: unresolvedCount === 0 && !signoffQuery.data,
+
     decide: (findingId: string, decision: ClinicianDecision) =>
       decide.mutate({ findingId, decision }),
     reopen: (findingId: string) => reopen.mutate(findingId),

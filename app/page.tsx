@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getMembers, getLatestScan } from "@/lib/fixtures";
-import { getReadiness } from "@/lib/readiness";
 import { formatFullDate, formatTimeSince } from "@/lib/format";
 import { MemberCard } from "@/components/member-board/member-card";
 
@@ -40,7 +39,6 @@ export default function MemberBoard() {
       ) : (
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {members.map((member) => {
-            const readiness = getReadiness(member.id);
             const latest = getLatestScan(member);
             return (
               <li key={member.id}>
@@ -51,8 +49,6 @@ export default function MemberBoard() {
                   lastScanLabel={
                     member.firstVisit ? undefined : formatTimeSince(latest.date, now)
                   }
-                  readinessHeadline={readiness.headline}
-                  flagCount={readiness.flagCount}
                 />
               </li>
             );

@@ -151,6 +151,8 @@ export const DeltaSchema = z.object({
 
 export const PreBriefSchema = z.object({
   memberId: z.string(),
+  /** One-line readiness summary for the clinician. Shown on the Member Board. */
+  headline: z.string().min(1),
   deltas: z.array(DeltaSchema),
   findings: z.array(FindingSchema),
   talkingPoints: z.array(z.string()),

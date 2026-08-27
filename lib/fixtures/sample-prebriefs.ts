@@ -21,6 +21,8 @@ type PreBriefInput = z.input<typeof PreBriefSchema>;
 // ---------------------------------------------------------------------------
 const ELIN_A: PreBriefInput = {
   memberId: "elin-a",
+  headline:
+    "Broadly well. A tracked mole has grown since last visit and LDL is trending up.",
   deltas: [
     {
       id: "elin-d1",
@@ -138,6 +140,8 @@ const ELIN_A: PreBriefInput = {
 // ---------------------------------------------------------------------------
 const MARCUS_B: PreBriefInput = {
   memberId: "marcus-b",
+  headline:
+    "First visit. Elevated visceral fat and borderline blood pressure stand out for discussion.",
   deltas: [],
   findings: [
     {
@@ -206,6 +210,7 @@ const MARCUS_B: PreBriefInput = {
 // ---------------------------------------------------------------------------
 const PRIYA_C: PreBriefInput = {
   memberId: "priya-c",
+  headline: "Strong year. Cardiometabolic markers have improved across the board.",
   deltas: [
     {
       id: "priya-d1",
