@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens - calm, warm, clinical-calm palette.
+   Light only. No dark theme (deliberate - see CLAUDE.md §Design).
+
+   --provisional (periwinkle) is RESERVED for unverified AI state. It must
+   never be used for decoration, focus rings, or any confirmed content.
+--------------------------------------------------------------------------- */
+:root {
+  /* Surfaces & structure */
+  --bg: #f6f4ef; /* warm bone - app background */
+  --surface: #ffffff; /* cards, panels */
+  --surface-sunken: #efece4; /* wells, disclaimer bar, data blocks */
+  --hairline: #e4e0d6; /* borders, dividers */
+
+  /* Text */
+  --ink: #20201d; /* primary text; also = clinician-confirmed state */
+  --muted: #6b6a64; /* secondary text, metadata, audit lines */
+
+  /* Accent - restrained sage/teal, used sparingly */
+  --accent: #2e7d6b;
+  --accent-hover: #25655a;
+  --accent-tint: #e8f1ee;
+
+  /* Provisional - periwinkle. RESERVED: unverified AI only. */
+  --provisional: #8c8ce6;
+  --provisional-fg: #4b4bb8; /* provisional text on tint (AA) */
+  --provisional-tint: #f3f3fc;
+  --provisional-border: #c7c7f0;
+
+  /* Risk tiers - muted, not ER-loud. Escalating warm -> hot.
+     -solid = dot/marker fill, -fg = accessible text/icon, -tint = chip bg */
+  --risk-good-solid: #4c875f;
+  --risk-good-fg: #43794f;
+  --risk-good-tint: #e6f0e9;
+
+  --risk-watch-solid: #c6912f; /* soft amber */
+  --risk-watch-fg: #8a6220;
+  --risk-watch-tint: #f6edd9;
+
+  --risk-elevated-solid: #b26b22; /* warm ochre */
+  --risk-elevated-fg: #9c5d1e;
+  --risk-elevated-tint: #f3e7d6;
+
+  --risk-priority-solid: #a83e33; /* restrained clay-red */
+  --risk-priority-fg: #a83e33;
+  --risk-priority-tint: #f5e1de;
+
+  /* Shape & elevation - large radii, soft low shadows (warm-tinted) */
+  --radius-card: 18px;
+  --radius-control: 11px;
+  --shadow-sm: 0 1px 2px rgba(32, 32, 29, 0.04);
+  --shadow-md: 0 1px 2px rgba(32, 32, 29, 0.04), 0 12px 28px -14px rgba(32, 32, 29, 0.12);
+}
+
+/* Expose tokens to Tailwind's utility layer (bg-bg, text-ink, border-hairline,
+   text-risk-priority-fg, rounded-card, shadow-md, font-sans, ...). */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-hairline: var(--hairline);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-tint: var(--accent-tint);
+
+  --color-provisional: var(--provisional);
+  --color-provisional-fg: var(--provisional-fg);
+  --color-provisional-tint: var(--provisional-tint);
+  --color-provisional-border: var(--provisional-border);
+
+  --color-risk-good-solid: var(--risk-good-solid);
+  --color-risk-good-fg: var(--risk-good-fg);
+  --color-risk-good-tint: var(--risk-good-tint);
+
+  --color-risk-watch-solid: var(--risk-watch-solid);
+  --color-risk-watch-fg: var(--risk-watch-fg);
+  --color-risk-watch-tint: var(--risk-watch-tint);
+
+  --color-risk-elevated-solid: var(--risk-elevated-solid);
+  --color-risk-elevated-fg: var(--risk-elevated-fg);
+  --color-risk-elevated-tint: var(--risk-elevated-tint);
+
+  --color-risk-priority-solid: var(--risk-priority-solid);
+  --color-risk-priority-fg: var(--risk-priority-fg);
+  --color-risk-priority-tint: var(--risk-priority-tint);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+
+  --font-sans: var(--font-hanken-grotesk), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures for any numeric / data value. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Consistent, semantic focus affordance - accent, never periwinkle. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
