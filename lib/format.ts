@@ -31,3 +31,11 @@ export function formatTimeSince(dateISO: string, now: Date): string {
   if (months < 24) return `${months} months ago`;
   return `${Math.round(months / 12)} years ago`;
 }
+
+/** "14:32" - clock time from an ISO timestamp, for the activity log. */
+export function formatClockTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}

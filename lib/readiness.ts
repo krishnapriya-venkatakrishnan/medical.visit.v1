@@ -21,12 +21,12 @@ const PLACEHOLDER: Record<string, Readiness> = {
   "elin-a": {
     headline:
       "Broadly well. A tracked mole has grown since last visit and LDL is trending up.",
-    flagCount: 2,
+    flagCount: 3,
   },
   "marcus-b": {
     headline:
       "First visit. Elevated visceral fat and borderline blood pressure stand out for discussion.",
-    flagCount: 2,
+    flagCount: 4,
   },
   "priya-c": {
     headline:
