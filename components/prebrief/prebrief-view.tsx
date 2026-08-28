@@ -22,23 +22,37 @@ export function PreBriefView({ member }: { member: Member }) {
           Back to board
         </Link>
 
-        <header className="mt-6">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted">Pre-brief</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-ink">
-            {member.displayName}
-          </h1>
-          <p className="mt-2 text-sm text-muted">
-            {member.firstVisit ? "First visit" : "Returning"} ·{" "}
-            <span className="tnum">{member.scans.length}</span>{" "}
-            {member.scans.length === 1 ? "scan" : "scans"} on record · latest{" "}
-            <span className="tnum">{member.scans[member.scans.length - 1].date}</span>
-          </p>
-          {pb.prebrief && !pb.generated ? (
-            <p className="mt-3 inline-block rounded-full bg-surface-sunken px-3 py-1 text-xs text-muted">
-              Sample pre-brief · no API key configured
+        <div className="mt-6 flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <header>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted">Pre-brief</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.02em] text-ink">
+              {member.displayName}
+            </h1>
+            <p className="mt-2 text-sm text-muted">
+              {member.firstVisit ? "First visit" : "Returning"} ·{" "}
+              <span className="tnum">{member.scans.length}</span>{" "}
+              {member.scans.length === 1 ? "scan" : "scans"} on record · latest{" "}
+              <span className="tnum">{member.scans[member.scans.length - 1].date}</span>
             </p>
+            {pb.prebrief && !pb.generated ? (
+              <p className="mt-3 inline-block rounded-full bg-surface-sunken px-3 py-1 text-xs text-muted">
+                Sample pre-brief · no API key configured
+              </p>
+            ) : null}
+          </header>
+
+          {pb.prebrief ? (
+            <aside className="w-full shrink-0 rounded-card border border-provisional-border bg-linear-to-br from-provisional-tint to-surface p-5 shadow-sm md:max-w-sm">
+              <p className="text-xs font-medium uppercase tracking-widest text-provisional-fg">
+                AI readiness
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-provisional-fg">
+                <span className="sr-only">AI readiness summary: </span>
+                {pb.prebrief.headline}
+              </p>
+            </aside>
           ) : null}
-        </header>
+        </div>
 
         {pb.isLoading ? (
           <PreBriefSkeleton />
@@ -52,11 +66,6 @@ export function PreBriefView({ member }: { member: Member }) {
           </div>
         ) : pb.prebrief ? (
           <>
-            <p className="mt-8 max-w-3xl text-lg leading-7 text-provisional-fg">
-              <span className="sr-only">AI readiness summary: </span>
-              {pb.prebrief.headline}
-            </p>
-
             <div className="mt-10 grid items-start gap-x-8 gap-y-12 md:grid-cols-2">
               <DeltasSection deltas={pb.prebrief.deltas} firstVisit={member.firstVisit} />
 

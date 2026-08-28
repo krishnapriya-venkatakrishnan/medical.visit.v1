@@ -25,7 +25,15 @@ export function DebriefView({ member }: { member: Member }) {
   return (
     <main className="flex-1 bg-linear-to-b from-white to-icy">
       <div className="mx-auto w-full max-w-6xl px-6 py-14">
-        {backToPreBrief}
+        <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <Link href="/" className="text-accent hover:underline">
+            Board
+          </Link>
+          <span aria-hidden className="text-hairline">
+            /
+          </span>
+          {backToPreBrief}
+        </nav>
 
         <header className="mt-6">
           <p className="text-xs font-medium uppercase tracking-widest text-muted">Member debrief</p>
