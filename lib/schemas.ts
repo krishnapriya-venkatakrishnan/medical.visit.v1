@@ -2,14 +2,15 @@
  * Zod schemas - the single source of truth for the data model (spec section 4)
  * and, critically, for everything that crosses the AI boundary.
  *
- * Non-negotiables enforced here:
- *  - #4 VALIDATE ALL AI OUTPUT. The PreBrief / Finding / Delta schemas are the
- *    validation contract: model output is parsed as JSON and `.parse`d against
- *    these before anything can render. Invalid output is rejected/retried,
- *    never displayed.
- *  - #2 EVERY AI CLAIM HAS PROVENANCE. Findings and deltas both require a
- *    non-empty `provenance` array. A schema that lets an AI assertion through
- *    with no traceable source is a bug.
+ * Two layers, kept distinct (non-negotiable #4):
+ *  - SHAPE: these schemas validate that model output is well-formed JSON. Zod
+ *    checks the JSON is *valid*.
+ *  - TRUTH: `lib/reconcile.ts` checks each claim against the record. It checks
+ *    the JSON is *true*. Zod does not do this and must not be confused for it.
+ *
+ * The `claim` field on a Finding is structured (level | trend | observation) so
+ * the reconciler can tie it out. `proposedTier` is the model's suggestion only;
+ * the displayed tier is `deriveTier()`-computed (non-negotiable #2).
  *
  * Types are derived from these schemas with `z.infer` in `lib/types.ts`; do not
  * hand-write them.
@@ -103,20 +104,22 @@ export const MemberSchema = z.object({
 // AI-produced output - schema-validated before it can render.
 // ===========================================================================
 
+/** A dotted path into a Scan, e.g. "blood.ldl" or "skin.flagged[0].diameterMm". */
+export const MetricPathSchema = z.string().min(1);
+
 /**
  * A pointer from an AI claim back to the exact measurement that produced it.
- * `source` is a dotted path into a Scan, e.g. "blood.ldl" or
- * "skin.flagged[0].diameterMm".
+ * `metric` is the path; `value` and `scanDate` are what the model says is there.
+ * The reconciler checks that against the record (spec section 4.5).
  */
 export const ProvenanceRefSchema = z.object({
-  source: z.string(),
+  metric: MetricPathSchema,
   value: z.union([z.string(), z.number()]),
   scanDate: IsoDateSchema,
 });
 
-/** Risk tiers for findings (spec section 4). Note: no "good" tier here - a
- * finding is something to surface; positive change is expressed as a Delta. */
-export const RiskTierSchema = z.enum(["watch", "elevated", "priority"]);
+/** Risk tiers, muted not ER-loud (spec section 7). Computed by code, never the model. */
+export const RiskTierSchema = z.enum(["good", "watch", "elevated", "priority"]);
 
 /** Clinician-in-the-loop lifecycle. Starts `unverified` (renders periwinkle). */
 export const FindingStatusSchema = z.enum([
@@ -126,14 +129,69 @@ export const FindingStatusSchema = z.enum([
   "dismissed",
 ]);
 
+/**
+ * The model's factual claim, in one of three machine-checkable shapes. This is
+ * what makes reconciliation possible: prose can only be read, structure can be
+ * tied out against the record.
+ */
+export const ClaimSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("level"),
+    metric: MetricPathSchema,
+    value: z.number(),
+    scanDate: IsoDateSchema,
+  }),
+  z.object({
+    kind: z.literal("trend"),
+    metric: MetricPathSchema,
+    from: z.number(),
+    fromDate: IsoDateSchema,
+    to: z.number(),
+    toDate: IsoDateSchema,
+    direction: z.enum(["up", "down"]),
+  }),
+  z.object({
+    kind: z.literal("observation"),
+    metric: MetricPathSchema,
+    scanDate: IsoDateSchema,
+    note: z.string(),
+  }),
+]);
+
 export const FindingSchema = z.object({
   id: z.string(),
   title: z.string(),
+  /** Model prose. Never authoritative; the `claim` is what gets reconciled. */
   rationale: z.string(),
-  riskTier: RiskTierSchema,
+  claim: ClaimSchema,
+  /** What the model wants the tier to be. NOT what we display; see the reconciler. */
+  proposedTier: RiskTierSchema,
   provenance: z.array(ProvenanceRefSchema).min(1, "every finding needs provenance"),
   status: FindingStatusSchema.default("unverified"),
   clinicianEdit: z.string().optional(),
+});
+
+// ===========================================================================
+// Reconciliation - produced by the deterministic reconciler (spec section 4.5).
+// This is the audit artifact: what code checked, and what it concluded.
+// ===========================================================================
+
+export const ReconCheckSchema = z.object({
+  name: z.string(),
+  severity: z.enum(["hard", "soft"]),
+  passed: z.boolean(),
+  detail: z.string(),
+});
+
+export const ReconciliationSchema = z.object({
+  findingId: z.string(),
+  /** rejected = a hard check failed, never renders as clinical content.
+   *  flagged  = grounded but a soft check failed or the tier was disputed.
+   *  grounded = every check passed. */
+  verdict: z.enum(["grounded", "flagged", "rejected"]),
+  /** Computed from the record via deriveTier(). Authoritative - overrides proposedTier. */
+  derivedTier: RiskTierSchema,
+  checks: z.array(ReconCheckSchema),
 });
 
 /** A signed change since the previous scan. `valence` is the "good / bad" sign. */
@@ -160,9 +218,9 @@ export const PreBriefSchema = z.object({
 });
 
 /**
- * The shape the model is asked to return in Stage 4: no clinician-only fields
- * (`status`, `clinicianEdit`) - those are applied on our side. Kept alongside
- * the full schema so the AI contract stays explicit.
+ * The shape the model is asked to return: no clinician-only fields (`status`,
+ * `clinicianEdit`). The model provides `claim`, `proposedTier` and `provenance`;
+ * the server runs the reconciler over each finding before anything renders.
  */
 export const PreBriefDraftSchema = PreBriefSchema.extend({
   findings: z.array(FindingSchema.omit({ status: true, clinicianEdit: true })),

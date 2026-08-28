@@ -5,10 +5,23 @@
  * `prebriefQueryKey`, so opening a member reuses whatever the board fetched.
  */
 
-import type { Debrief, FinalisedPreBrief, PreBrief } from "@/lib/types";
+import type { Claim, Debrief, FinalisedPreBrief, PreBrief, Reconciliation, RiskTier } from "@/lib/types";
+
+/** A finding the reconciler rejected: shown in the "Caught by reconciler" tray. */
+export interface RejectedFinding {
+  id: string;
+  title: string;
+  claim: Claim;
+  proposedTier: RiskTier;
+  failedCheck: { name: string; detail: string } | null;
+}
 
 export interface PreBriefResponse {
   prebrief: PreBrief;
+  /** Reconciliation for every returned finding, keyed by finding id. */
+  reconciliations: Record<string, Reconciliation>;
+  /** Findings the reconciler rejected before they could render as clinical content. */
+  rejected: RejectedFinding[];
   /** false when the server returned the built-in sample (no API key configured). */
   generated: boolean;
   generatedAt: string;

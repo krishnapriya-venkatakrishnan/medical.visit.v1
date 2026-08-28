@@ -13,16 +13,20 @@ engineer would build clinical AI.
 
 1. **CLINICIAN IS THE DECISION-MAKER.** All AI output is PROVISIONAL until a
    clinician accepts, edits, or dismisses it. Nothing reaches the member without
-   sign-off.
-2. **EVERY AI CLAIM HAS PROVENANCE.** A finding must reference the exact data
-   point(s) it derives from. A claim with no traceable source is a bug.
+   sign-off. The model can suggest escalation; it cannot enact it.
+2. **EVERY AI CLAIM IS RECONCILED, NOT JUST CITED.** The deterministic reconciler
+   (`lib/reconcile.ts`) verifies each finding against the record: value tie-out,
+   trend direction, and the DERIVED risk tier. Unreconciled claims are rejected
+   before render and go to the "Caught by reconciler" tray. Risk tier is computed
+   by code (`lib/reference-ranges.ts`), never taken from the model.
 3. **SYNTHETIC DATA ONLY.** No real personal or health data, ever. Names are
    obviously fake. A visible disclaimer states this is a prototype, not a medical
    device.
-4. **VALIDATE ALL AI OUTPUT.** Model responses are parsed as JSON and validated
-   with Zod before rendering. Invalid output is rejected/retried, never displayed.
-5. **FULL AUDIT TRAIL.** Every system suggestion and clinician action is logged
-   with actor + timestamp.
+4. **TWO LAYERS, DISTINCT.** Zod validates SHAPE (well-formed JSON, retry if not);
+   `reconcile()` validates TRUTH (claims tie to the record). Never conflate them.
+   Invalid or unreconciled output is never displayed as clinical content.
+5. **FULL AUDIT TRAIL.** Every system suggestion, reconciler verdict, and
+   clinician action is logged with actor + timestamp.
 
 ## Stack
 
@@ -64,8 +68,12 @@ for every numeric value.
   of truth for AI I/O; derive types with `z.infer`, never hand-write them.
 - `ANTHROPIC_API_KEY` server-side only; never expose to client. `lib/ai` is
   `import "server-only"`.
-- Small, well-named modules. The prompt+schema module is heavily commented;
-  reviewers will read it closely.
+- Small, well-named modules. `lib/reconcile.ts` and `lib/ai/prebrief.ts` (prompt +
+  schema) are the two files reviewers read closest; keep them heavily commented.
+- `lib/reconcile.ts` is pure and synchronous (no network) so `evals/` can hammer
+  it. The one non-deterministic piece, the advisory judge for `observation`
+  claims, lives in `lib/ai/judge.ts` and is applied by the route, not inside
+  `reconcile()`.
 - Every screen has explicit loading / empty / error states.
 - Primary button = `--ink` fill / `--bg` text. `--accent` only for links and
   low-emphasis affordances. Periwinkle is never a UI affordance.
@@ -76,13 +84,16 @@ for every numeric value.
 ## Folder structure
 
 ```
-app/            routes, root layout, client providers
-components/      presentational + interactive UI
+app/                routes, root layout, client providers
+components/          presentational + interactive UI
 lib/
-  types.ts      shared domain types (inferred from schemas)
-  schemas.ts    Zod schemas - source of truth for AI I/O
-  ai/           the AI boundary, SERVER ONLY (import "server-only")
-  fixtures/     synthetic member records (JSON) + loader
+  types.ts          shared domain types (inferred from schemas)
+  schemas.ts        Zod schemas - source of truth for the data model and AI I/O
+  reconcile.ts      the deterministic reconciler (pure, synchronous)
+  reference-ranges.ts  illustrative bands + deriveTier()
+  ai/               the AI boundary, SERVER ONLY (import "server-only")
+  fixtures/         synthetic member records + sample pre-briefs
+evals/              adversarial eval for the reconciler (`npm run eval`)
 ```
 
 ## Out of scope (on purpose - note in README)

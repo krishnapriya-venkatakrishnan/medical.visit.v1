@@ -12,43 +12,70 @@ Built the way a regulated-systems engineer would build clinical AI.
 > No real personal or health data. Names are obviously fake. A disclaimer to that
 > effect is fixed to every screen.
 
-## Thesis: provenance-gated, clinician-in-the-loop clinical AI
+## Thesis: reconciled, clinician-in-the-loop clinical AI
 
-The AI does the heavy lifting; the clinician stays the decision-maker; every claim
-is auditable. Three principles are enforced in the UI, not just claimed here:
+Generation is a commodity: a POST to the model. The engineering is the
+**deterministic reconciler** (`lib/reconcile.ts`) that sits between the model and
+the clinician. The model chooses which findings to surface and writes the prose.
+It does **not** decide whether a number is real, which way a trend goes, or how
+risky something is. Those are computed from the record.
 
-1. **Every AI claim carries provenance.** Each finding and each change references
-   the exact measurement(s) it derives from (`source` path, value, scan date).
-   The schema rejects any finding or delta with no source, so an unsourced claim
-   cannot reach the screen.
-2. **The clinician is the decision-maker.** AI output is *provisional* and renders
-   in periwinkle until a clinician accepts, edits, or dismisses it, at which point
-   it resolves to confirmed ink. The pre-brief cannot be signed off until every
-   finding is resolved, and nothing is drafted for the member until it is.
-3. **Full audit trail.** Every system suggestion and every clinician action is
-   logged with actor and timestamp, shown on the debrief screen.
+Provenance you can *display*; grounding you have to *compute*. For every finding
+the model produces, `reconcile()` runs a check pipeline against the record:
+
+| Check | Failure |
+| --- | --- |
+| **referential integrity** - every cited metric path and scan date exists | rejected |
+| **value tie-out** - the cited value exactly equals the record | rejected |
+| **trend consistency** - a "trend" claim's direction matches `sign(to - from)` recomputed from the record | rejected |
+| **tier derivation** - the risk tier is computed by `deriveTier()` from an illustrative reference-range table; a disagreement with the model is surfaced, never enacted | flagged |
+| **prose coverage** - numbers in the rationale are backed by provenance | flagged |
+
+**Rejected findings never render as clinical content** - they go to a visible
+"Caught by reconciler" tray with the failed check. That tray is the point: the
+safety layer is visible, not asserted.
+
+Two layers, kept distinct: **Zod validates shape** (well-formed JSON, retry if
+not); **`reconcile()` validates truth** (claims tie to the record). The displayed
+risk tier is always the record-derived tier, never the model's.
 
 `CLAUDE.md` has the full five-point constitution.
+
+### Reconciler eval
+
+`npm run eval` runs an adversarial harness against `reconcile()`: a clean set that
+should pass, and one poisoned finding per failure mode (fabricated number, flipped
+trend, hallucinated metric, over-escalated tier, unbacked prose). It reports:
+
+```
+catch rate            100%  (5/5 adversarial caught)
+false-rejection rate  0%    (0/4 clean rejected)
+```
 
 ## The three screens
 
 | Screen | What it does |
 | --- | --- |
 | **Member Board** (`/`) | The clinician's day: each member as a card with a one-line AI readiness headline and a flag count. |
-| **Pre-Brief** (`/members/[id]`) | What changed since last visit (signed deltas), risk-ranked findings each with a provenance disclosure and accept / edit / dismiss controls, talking points and a draft plan, and the sign-off gate. |
+| **Pre-Brief** (`/members/[id]`) | What changed since last visit (signed deltas); risk-ranked findings, each reconciled, with a provenance disclosure and accept / edit / dismiss controls; the "Caught by reconciler" tray; talking points and a draft plan; the sign-off gate. |
 | **Debrief** (`/members/[id]/debrief`) | A member-facing draft in a calm, plain-language voice. The clinician edits inline; the diff between the AI draft and the sent version is shown as the flywheel teaching signal. An audit trail panel lists every event. |
 
 ## How the AI is wired in
 
 The pre-brief and debrief are generated live by the Anthropic API inside the
-backend (`lib/ai/prebrief.ts`, `lib/ai/debrief.ts`), not by any client code. The
-model is prompted to return JSON only; the response is parsed and validated with
-Zod (`PreBriefDraftSchema`, `DebriefDraftSchema`) before anything renders. Invalid
-output is retried once with the validation error fed back, then surfaced as a
-clean error. **Unvalidated model output is never displayed.** That validation
-step is the point: regulated-grade handling of a non-deterministic component.
+backend (`lib/ai/prebrief.ts`, `lib/ai/debrief.ts`), not by any client code. Each
+finding's factual claim is emitted in a structured shape (`level` | `trend` |
+`observation`) so it can be checked. The response is:
 
-`ANTHROPIC_API_KEY` is read server-side only, in the route handlers.
+1. **shape-validated** with Zod (`PreBriefDraftSchema`); invalid JSON is retried
+   once with the error fed back, then surfaced as a clean error;
+2. **reconciled** - `reconcile()` runs over every finding (see the thesis above);
+3. for `observation` claims only, additionally reviewed by an **advisory LLM
+   judge** (`lib/ai/judge.ts`) that can flag, never accept.
+
+**Unvalidated or unreconciled model output is never displayed as clinical
+content.** `ANTHROPIC_API_KEY` is read server-side only, in the route handlers and
+`lib/ai/`.
 
 ## Scope & honesty
 
@@ -74,12 +101,14 @@ npm run dev                    # http://localhost:3000
 ```
 
 **Without an API key** the app is fully navigable: the pre-brief endpoint returns
-a built-in sample and the debrief endpoint returns a template assembled from the
-finalised pre-brief. Both are labelled "sample" in the UI. **With a key** both are
-generated live by `claude-opus-5`.
+a built-in sample (still run through the reconciler - the sample deliberately
+includes a finding that fails, so the tray is populated) and the debrief endpoint
+returns a template. Both are labelled "sample" in the UI. **With a key** both are
+generated live by `claude-opus-5`. If the key is identity-linked, also set
+`ANTHROPIC_WORKSPACE_ID`.
 
 Scripts: `npm run dev` · `npm run build` · `npm run start` · `npm run lint` ·
-`npm run typecheck`.
+`npm run typecheck` · `npm run eval`.
 
 ## Stack
 
@@ -97,10 +126,13 @@ components/
 lib/
   schemas.ts                   Zod schemas: the source of truth for the data model and AI I/O
   types.ts                     types, all inferred from the schemas
-  ai/                          the AI boundary, SERVER ONLY (import "server-only")
+  reconcile.ts                 the deterministic reconciler (pure, synchronous)
+  reference-ranges.ts          illustrative bands + deriveTier()
+  ai/                          the AI boundary, SERVER ONLY (prebrief, debrief, judge, client)
   fixtures/                    three synthetic members + sample pre-briefs
   diff.ts                      word-level diff for the flywheel signal
   audit-cache.ts               the append-only audit log
+evals/                         adversarial eval for the reconciler (npm run eval)
 ```
 
 ## Deploy (Vercel)
@@ -119,20 +151,23 @@ sample/template fallbacks.
 ## Walkthrough (60-90s)
 
 1. **Member Board.** Three members, each with a periwinkle AI readiness line.
-   "The AI reads the whole longitudinal record and drafts, but nothing here is
-   decided yet."
-2. **Open Marcus B.** (first visit, invisible risk). Pre-brief: no deltas yet,
-   four findings ranked by risk.
-3. **Expand a finding's provenance.** "Every claim points back to the exact
-   measurements. Visceral fat index 14, on this scan. No source, no claim."
-4. **Dismiss one finding, edit another.** The edited finding resolves from
-   periwinkle to confirmed ink with the clinician's wording.
-5. **Sign off.** The gate only opens once every finding is resolved.
+   "The model reads the whole longitudinal record and drafts. Nothing here is
+   decided, and not everything it drafted made it onto the screen."
+2. **Open Marcus B.** (first visit, invisible risk). Expand a finding's
+   provenance: every claim points to the exact measurement, and it ties out.
+3. **Scroll to "Caught by reconciler."** A finding the model produced whose cited
+   value does not match the record. The deterministic layer rejected it before it
+   could render as clinical content. "This is the part you can't get from a
+   candidate who uses Claude to write code."
+4. **A "review carefully" finding.** The model proposed a higher tier than the
+   reference ranges support; the reconciler shows both and lets the clinician
+   decide.
+5. **Dismiss one, edit another, sign off.** The edited finding resolves from
+   periwinkle to confirmed ink; the gate only opens once every finding is resolved.
 6. **Debrief.** The signed-off pre-brief is redrafted in plain, on-your-side
-   language. Edit a line in the summary.
-7. **Flywheel teaching signal.** The diff between the AI draft and the clinician's
-   version, highlighted word by word. "This is what the model would learn from."
-8. **Audit trail.** Every system suggestion and clinician action, with actor and
-   time.
+   language. Edit a line, and the **flywheel diff** shows the change word by word.
+7. **Audit trail.** System suggestions, reconciler verdicts, and clinician
+   actions, with actor and time.
 
-One sentence: *the AI drafts, the clinician decides, everything is auditable.*
+One sentence: *the model drafts, a deterministic layer rejects anything it can't
+ground, the clinician decides.*

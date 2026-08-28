@@ -20,6 +20,8 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
 
   const isUnverified = finding.status === "unverified";
   const isDismissed = finding.status === "dismissed";
+  const { verdict } = finding.reconciliation;
+  const failedCheck = finding.reconciliation.checks.find((c) => !c.passed);
 
   const shell = isUnverified
     ? "border-provisional-border bg-provisional-tint"
@@ -45,10 +47,10 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
         >
           {finding.title}
         </h3>
-        <RiskBadge tier={finding.riskTier} />
+        <RiskBadge tier={finding.reconciliation.derivedTier} />
       </div>
 
-      <div className="mt-1.5 flex items-center gap-2 text-xs">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         {isUnverified ? (
           <span className="inline-flex items-center gap-1 font-medium text-provisional-fg">
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-provisional" />
@@ -61,7 +63,24 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
             {finding.status === "dismissed" && "Dismissed by clinician"}
           </span>
         )}
+
+        {verdict === "grounded" ? (
+          <span className="inline-flex items-center gap-1 text-muted">
+            <span aria-hidden>&checkmark;</span> reconciled
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 font-medium text-risk-elevated-fg">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-risk-elevated-solid" />
+            review carefully
+          </span>
+        )}
       </div>
+
+      {verdict === "flagged" && failedCheck ? (
+        <p className="mt-2 rounded-control bg-risk-elevated-tint px-3 py-2 text-xs leading-5 text-risk-elevated-fg">
+          Reconciler: {failedCheck.detail}
+        </p>
+      ) : null}
 
       {editing ? (
         <div className="mt-3">

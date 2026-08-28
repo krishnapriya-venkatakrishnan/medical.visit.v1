@@ -40,8 +40,8 @@ export function ProvenanceDetails({
       <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 ease-out group-open/prov:grid-rows-[1fr] motion-reduce:transition-none">
         <ul className="mt-2 space-y-1 overflow-hidden border-l border-hairline pl-3 text-xs text-muted">
           {refs.map((ref, i) => (
-            <li key={`${ref.source}-${ref.scanDate}-${i}`} className="flex flex-wrap gap-x-2">
-              <code className="rounded bg-surface-sunken px-1 py-0.5 text-ink">{ref.source}</code>
+            <li key={`${ref.metric}-${ref.scanDate}-${i}`} className="flex flex-wrap gap-x-2">
+              <code className="rounded bg-surface-sunken px-1 py-0.5 text-ink">{ref.metric}</code>
               <span className="tnum text-ink">{ref.value}</span>
               <span className="tnum">· {ref.scanDate}</span>
             </li>

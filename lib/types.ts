@@ -11,10 +11,14 @@ import type {
   MemberSchema,
   ScanSchema,
   MoleSchema,
+  MetricPathSchema,
   ProvenanceRefSchema,
   RiskTierSchema,
   FindingStatusSchema,
+  ClaimSchema,
   FindingSchema,
+  ReconCheckSchema,
+  ReconciliationSchema,
   DeltaSchema,
   PreBriefSchema,
   PreBriefDraftSchema,
@@ -30,11 +34,17 @@ export type Scan = z.infer<typeof ScanSchema>;
 export type Mole = z.infer<typeof MoleSchema>;
 
 // AI-produced output.
+export type MetricPath = z.infer<typeof MetricPathSchema>;
 export type ProvenanceRef = z.infer<typeof ProvenanceRefSchema>;
 export type RiskTier = z.infer<typeof RiskTierSchema>;
 export type FindingStatus = z.infer<typeof FindingStatusSchema>;
+export type Claim = z.infer<typeof ClaimSchema>;
 export type Finding = z.infer<typeof FindingSchema>;
 export type Delta = z.infer<typeof DeltaSchema>;
+
+// Deterministic reconciler output (spec section 4.5).
+export type ReconCheck = z.infer<typeof ReconCheckSchema>;
+export type Reconciliation = z.infer<typeof ReconciliationSchema>;
 export type PreBrief = z.infer<typeof PreBriefSchema>;
 export type PreBriefDraft = z.infer<typeof PreBriefDraftSchema>;
 export type FinalisedPreBrief = z.infer<typeof FinalisedPreBriefSchema>;

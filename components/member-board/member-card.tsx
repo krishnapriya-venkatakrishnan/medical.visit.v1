@@ -25,6 +25,7 @@ export function MemberCard({ id, displayName, firstVisit, lastScanLabel }: Membe
     queryKey: prebriefQueryKey(id),
     queryFn: () => fetchPreBrief(id),
     staleTime: 5 * 60_000,
+    retry: false,
     select: (r) => ({ headline: r.prebrief.headline, flagCount: r.prebrief.findings.length }),
   });
 

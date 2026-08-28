@@ -3,24 +3,33 @@
 /**
  * Clinician-in-the-loop state for one pre-brief, held in the TanStack Query cache.
  *
- *   ["prebrief", memberId]         the AI output from POST /api/prebrief. Never
- *                                  mutated. Shared with the Member Board card.
+ *   ["prebrief", memberId]         the reconciled output from POST /api/prebrief
+ *                                  (findings + per-finding Reconciliation + the
+ *                                  rejected tray). Never mutated. Shared with the
+ *                                  Member Board card.
  *   ["prebrief-actions", memberId] the clinician's decision per finding, layered
- *                                  on top of the AI output.
- *   ["prebrief-audit", memberId]   an append-only log: system suggestions +
- *                                  every clinician action. The Audit Trail reads it.
+ *                                  on top.
+ *   ["prebrief-audit", memberId]   an append-only log: system suggestions,
+ *                                  reconciler verdicts, every clinician action.
  *   ["prebrief-signoff", memberId] whether the pre-brief has been signed off.
  *
- * Keeping the AI output immutable and the clinician layer separate mirrors how
- * the real flow works: the model proposes, the clinician disposes, and the
- * disposal is fully logged.
+ * The model proposes, the reconciler grounds, the clinician disposes, and every
+ * step is logged.
  */
 
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchPreBrief, prebriefQueryKey } from "@/lib/api";
+import { fetchPreBrief, prebriefQueryKey, type RejectedFinding } from "@/lib/api";
 import { auditKey, recordClinicianEvent, seedSystemEvent } from "@/lib/audit-cache";
-import type { AuditEvent, Finding, FindingStatus, FinalisedPreBrief, PreBrief } from "@/lib/types";
+import type {
+  AuditEvent,
+  Finding,
+  FindingStatus,
+  FinalisedPreBrief,
+  PreBrief,
+  Reconciliation,
+  RiskTier,
+} from "@/lib/types";
 
 export type ClinicianDecision = {
   status: Exclude<FindingStatus, "unverified">;
@@ -34,6 +43,8 @@ const keys = {
   signoff: (id: string) => ["prebrief-signoff", id] as const,
 };
 
+const TIER_ORDER: Record<RiskTier, number> = { priority: 0, elevated: 1, watch: 2, good: 3 };
+
 function decisionVerb(d: ClinicianDecision): string {
   if (d.status === "accepted") return "Accepted finding";
   if (d.status === "edited") return "Edited finding";
@@ -43,9 +54,12 @@ function decisionVerb(d: ClinicianDecision): string {
 export interface ResolvedFinding extends Finding {
   /** The text to show: the clinician's edit when present, otherwise the rationale. */
   displayText: string;
+  /** The reconciler's verdict for this finding. `derivedTier` is what displays. */
+  reconciliation: Reconciliation;
 }
 
 const EMPTY_FINDINGS: ResolvedFinding[] = [];
+const EMPTY_REJECTED: RejectedFinding[] = [];
 
 export function usePreBrief(memberId: string) {
   const qc = useQueryClient();
@@ -54,6 +68,9 @@ export function usePreBrief(memberId: string) {
     queryKey: prebriefQueryKey(memberId),
     queryFn: () => fetchPreBrief(memberId),
     staleTime: 5 * 60_000,
+    // Our endpoint's failures are deterministic (bad key, invalid output);
+    // retrying just hammers it. The user retries explicitly.
+    retry: false,
   });
 
   const actionsQuery = useQuery({
@@ -77,17 +94,34 @@ export function usePreBrief(memberId: string) {
     staleTime: Infinity,
   });
 
-  const prebrief: PreBrief | undefined = prebriefQuery.data?.prebrief;
-  const generatedAt = prebriefQuery.data?.generatedAt;
+  const response = prebriefQuery.data;
+  const prebrief: PreBrief | undefined = response?.prebrief;
+  const generatedAt = response?.generatedAt;
 
-  // Record what the system proposed, once, as soon as the pre-brief arrives.
+  // Record what the system proposed and how the reconciler ruled, once.
   useEffect(() => {
-    if (!prebrief || !generatedAt) return;
+    if (!response || !prebrief || !generatedAt) return;
     seedSystemEvent(qc, memberId, "Generated pre-brief", memberId, generatedAt);
     for (const f of prebrief.findings) {
-      seedSystemEvent(qc, memberId, `Suggested finding: ${f.title}`, f.id, generatedAt);
+      const verdict = response.reconciliations[f.id]?.verdict ?? "grounded";
+      seedSystemEvent(
+        qc,
+        memberId,
+        `Reconciler: ${verdict} - ${f.title}`,
+        f.id,
+        generatedAt,
+      );
     }
-  }, [qc, memberId, prebrief, generatedAt]);
+    for (const r of response.rejected) {
+      seedSystemEvent(
+        qc,
+        memberId,
+        `Reconciler: rejected - ${r.title} (${r.failedCheck?.name ?? "check failed"})`,
+        r.id,
+        generatedAt,
+      );
+    }
+  }, [qc, memberId, response, prebrief, generatedAt]);
 
   const decide = useMutation({
     mutationFn: async (input: { findingId: string; decision: ClinicianDecision }) => input,
@@ -123,28 +157,33 @@ export function usePreBrief(memberId: string) {
   const actions = actionsQuery.data;
 
   const findings: ResolvedFinding[] = useMemo(() => {
-    if (!prebrief) return EMPTY_FINDINGS;
-    const order: Record<Finding["riskTier"], number> = { priority: 0, elevated: 1, watch: 2 };
+    if (!response || !prebrief) return EMPTY_FINDINGS;
     return [...prebrief.findings]
       .map((f): ResolvedFinding => {
+        const reconciliation =
+          response.reconciliations[f.id] ??
+          ({ findingId: f.id, verdict: "grounded", derivedTier: f.proposedTier, checks: [] } as Reconciliation);
         const decision = actions[f.id];
-        if (!decision) return { ...f, displayText: f.rationale };
         return {
           ...f,
-          status: decision.status,
-          clinicianEdit: decision.clinicianEdit,
-          displayText: decision.clinicianEdit ?? f.rationale,
+          status: decision?.status ?? "unverified",
+          clinicianEdit: decision?.clinicianEdit,
+          displayText: decision?.clinicianEdit ?? f.rationale,
+          reconciliation,
         };
       })
-      .sort((a, b) => order[a.riskTier] - order[b.riskTier]);
-  }, [prebrief, actions]);
+      .sort(
+        (a, b) => TIER_ORDER[a.reconciliation.derivedTier] - TIER_ORDER[b.reconciliation.derivedTier],
+      );
+  }, [response, prebrief, actions]);
 
   const unresolvedCount = findings.filter((f) => f.status === "unverified").length;
   const total = findings.length;
   const isSignedOff = signoffQuery.data;
 
-  // The pre-brief as the clinician finalised it: only accepted/edited findings,
-  // with the settled text in `rationale`. Non-null once signed off.
+  // The pre-brief as the clinician finalised it: only accepted/edited findings
+  // (all of which passed reconciliation to be shown at all), settled text in
+  // `rationale`. Non-null once signed off.
   const finalised: FinalisedPreBrief | null = useMemo(() => {
     if (!prebrief || !isSignedOff) return null;
     return {
@@ -155,7 +194,8 @@ export function usePreBrief(memberId: string) {
           id: f.id,
           title: f.title,
           rationale: f.displayText,
-          riskTier: f.riskTier,
+          claim: f.claim,
+          proposedTier: f.proposedTier,
           provenance: f.provenance,
           status: f.status as "accepted" | "edited",
           ...(f.clinicianEdit ? { clinicianEdit: f.clinicianEdit } : {}),
@@ -165,7 +205,8 @@ export function usePreBrief(memberId: string) {
 
   return {
     prebrief,
-    generated: prebriefQuery.data?.generated ?? false,
+    rejected: response?.rejected ?? EMPTY_REJECTED,
+    generated: response?.generated ?? false,
     isLoading: prebriefQuery.isPending,
     isError: prebriefQuery.isError,
     error: prebriefQuery.error as Error | null,

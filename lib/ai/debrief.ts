@@ -20,6 +20,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
+import { anthropic } from "@/lib/ai/client";
 import { DebriefDraftSchema, DebriefSchema } from "@/lib/schemas";
 import type { Debrief, FinalisedPreBrief } from "@/lib/types";
 
@@ -55,7 +56,8 @@ Return ONE JSON object and nothing else. No markdown, no code fences. It must ma
 }
 
 Rules:
-- Only restate what the finalised pre-brief below contains. Do not introduce any finding,
+- Only restate what the finalised pre-brief below contains. Every finding in it has already
+  passed reconciliation and been signed off by the clinician. Do not introduce any finding,
   number, or recommendation that is not there.
 - "whatToWatch" comes from the findings. "whatsGood" comes from improvements in the deltas.
   "actionPlan" comes from the draft action plan.
@@ -93,7 +95,7 @@ export async function generateDebrief(
   finalised: FinalisedPreBrief,
   memberName: string,
 ): Promise<Debrief> {
-  const client = new Anthropic();
+  const client = anthropic();
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserMessage(finalised, memberName) },

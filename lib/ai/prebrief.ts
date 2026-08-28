@@ -36,6 +36,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
+import { anthropic } from "@/lib/ai/client";
 import { PreBriefDraftSchema, PreBriefSchema } from "@/lib/schemas";
 import type { Member, PreBrief } from "@/lib/types";
 
@@ -76,19 +77,24 @@ after. The object must match exactly this shape:
       "direction": "up" | "down" | "unchanged",
       "valence": "improvement" | "concern" | "neutral",
       "summary": string,                    // one sentence, plain language
-      "provenance": [                       // at least one; the measurements this delta is based on
-        { "source": string, "value": string | number, "scanDate": string }
+      "provenance": [
+        { "metric": string, "value": string | number, "scanDate": string }
       ]
     }
   ],
-  "findings": [                             // risk-ranked; most serious first; [] if nothing to flag
+  "findings": [                             // most serious first; [] if nothing to flag
     {
       "id": string,                         // short stable slug, e.g. "finding-mole"
       "title": string,                      // short noun phrase
-      "rationale": string,                  // 1-3 sentences a clinician would accept
-      "riskTier": "watch" | "elevated" | "priority",
-      "provenance": [                       // at least one; the exact data points behind the claim
-        { "source": string, "value": string | number, "scanDate": string }
+      "rationale": string,                  // 1-3 sentences a clinician would accept; prose only
+      "claim":                              // the FACTUAL claim, in ONE of these shapes:
+        { "kind": "level",  "metric": string, "value": number, "scanDate": string }
+      | { "kind": "trend",  "metric": string, "from": number, "fromDate": string,
+                            "to": number, "toDate": string, "direction": "up" | "down" }
+      | { "kind": "observation", "metric": string, "scanDate": string, "note": string },
+      "proposedTier": "good" | "watch" | "elevated" | "priority",   // your suggestion only
+      "provenance": [
+        { "metric": string, "value": string | number, "scanDate": string }
       ]
     }
   ],
@@ -97,15 +103,20 @@ after. The object must match exactly this shape:
 }
 
 Rules:
-- "source" is a dotted path into a scan, e.g. "blood.ldl", "heart.bpSystolic",
-  "body.visceralFatIndex", "skin.flagged[0].diameterMm". "scanDate" is that scan's date.
-- Every finding and every delta MUST have at least one provenance entry. If you cannot point to
-  a specific measurement, do not make the claim.
-- Never invent values. Use only numbers present in the record. Do not assume data that is absent
-  (for a first visit there is no prior scan, so "deltas" must be []).
-- Risk tiers, muted not alarmist: "watch" = note it, "elevated" = address this visit,
-  "priority" = needs attention now. Do not inflate.
-- Do NOT include any "status" or "clinicianEdit" field on findings. Those belong to the clinician.
+- "metric" is a dotted path into a scan, e.g. "blood.ldl", "heart.bpSystolic",
+  "body.visceralFatIndex", "skin.flagged[0].changeMm". "scanDate" must be a real scan date.
+- Every finding's "claim" is checked against the record by a deterministic reconciler:
+  every value must EXACTLY equal what the record holds at that path and date, and a "trend"
+  direction must match the actual change. A claim that does not tie out is discarded, so do
+  not round, estimate, or infer - copy the exact numbers from the record.
+- Use "level" for a single value that matters, "trend" for a change between two scans, and
+  "observation" only for something with no number to check (e.g. lesion morphology).
+- Every finding and every delta MUST have at least one provenance entry naming a real metric
+  path, value and date.
+- "proposedTier" is only a suggestion. The displayed tier is computed from the record, so an
+  inflated tier will simply be corrected and flagged. Do not inflate.
+- For a first visit there is no prior scan, so "deltas" must be [] and no "trend" claims.
+- Do NOT include "status" or "clinicianEdit". Those belong to the clinician.
 - Keep language calm, specific, and free of em dashes.`;
 
 /** Builds the user turn: the member record as JSON, plus a short instruction. */
@@ -146,7 +157,7 @@ function extractText(message: Anthropic.Message): string {
  * falls back to a sample when it is missing.
  */
 export async function generatePreBrief(member: Member): Promise<PreBrief> {
-  const client = new Anthropic(); // reads ANTHROPIC_API_KEY from the environment
+  const client = anthropic();
 
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserMessage(member) },

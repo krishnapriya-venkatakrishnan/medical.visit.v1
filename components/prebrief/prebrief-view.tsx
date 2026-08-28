@@ -8,6 +8,7 @@ import { FindingsSection } from "./findings-section";
 import { GuidanceSection } from "./guidance-section";
 import { SignOffBar } from "./sign-off-bar";
 import { ActivityList } from "./activity-list";
+import { CaughtTray } from "./caught-tray";
 import { PreBriefSkeleton } from "./prebrief-skeleton";
 import { ErrorPanel } from "@/components/ui/error-panel";
 
@@ -63,6 +64,7 @@ export function PreBriefView({ member }: { member: Member }) {
               decide={pb.decide}
               reopen={pb.reopen}
             />
+            <CaughtTray rejected={pb.rejected} />
             <GuidanceSection
               talkingPoints={pb.prebrief.talkingPoints}
               draftActionPlan={pb.prebrief.draftActionPlan}

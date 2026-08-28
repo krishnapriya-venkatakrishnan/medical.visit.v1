@@ -31,6 +31,7 @@ export function useDebrief(memberId: string, finalised: FinalisedPreBrief | null
     queryFn: () => fetchDebrief(finalised as FinalisedPreBrief),
     enabled: finalised !== null,
     staleTime: Infinity,
+    retry: false,
   });
 
   const editsQuery = useQuery({

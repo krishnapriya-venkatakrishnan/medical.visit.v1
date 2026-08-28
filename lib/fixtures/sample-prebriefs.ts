@@ -1,13 +1,17 @@
 /**
  * Hardcoded sample pre-briefs, one per synthetic member.
  *
- * STAGE 3: these let the Pre-Brief screen be built and reviewed before live AI
- * is wired. In Stage 4 they are replaced by the output of `POST /api/prebrief`,
- * which produces the same shape from the member's record via the Anthropic API.
+ * These stand in for the model output when no ANTHROPIC_API_KEY is set. They are
+ * still run through the deterministic reconciler (`lib/reconcile.ts`), so the
+ * demo exercises every verdict:
+ *   - grounded  findings tie out and the tier agrees.
+ *   - flagged   findings tie out but the model's proposedTier is disputed.
+ *   - rejected  findings whose cited value does NOT match the record. These are
+ *               deliberately planted so the "Caught by reconciler" tray is
+ *               populated in the demo. They are obviously illustrative.
  *
- * Each object is authored against `z.input` of the schema (so `status` can be
- * omitted) and then parsed, so what this module exports is guaranteed valid and
- * every finding / delta carries the provenance the constitution requires.
+ * Authored against `z.input` of the schema (so `status` can be omitted) and
+ * parsed on load, so what this module exports is schema-valid.
  */
 
 import type { z } from "zod";
@@ -17,7 +21,7 @@ import type { PreBrief } from "@/lib/types";
 type PreBriefInput = z.input<typeof PreBriefSchema>;
 
 // ---------------------------------------------------------------------------
-// Elin A. - catch-it-early. A tracked mole is growing and LDL is drifting up.
+// Elin A. - catch-it-early. LDL is drifting up; a tracked mole is growing.
 // ---------------------------------------------------------------------------
 const ELIN_A: PreBriefInput = {
   memberId: "elin-a",
@@ -35,8 +39,8 @@ const ELIN_A: PreBriefInput = {
       summary:
         "The tracked mole on the left shoulder blade grew 0.4 mm since last visit. Border and colour remain regular.",
       provenance: [
-        { source: "skin.flagged[0].diameterMm", value: 4.8, scanDate: "2025-08-19" },
-        { source: "skin.flagged[0].diameterMm", value: 5.2, scanDate: "2026-08-27" },
+        { metric: "skin.flagged[0].diameterMm", value: 4.8, scanDate: "2025-08-19" },
+        { metric: "skin.flagged[0].diameterMm", value: 5.2, scanDate: "2026-08-27" },
       ],
     },
     {
@@ -47,11 +51,10 @@ const ELIN_A: PreBriefInput = {
       unit: "mmol/L",
       direction: "up",
       valence: "concern",
-      summary:
-        "LDL rose from 3.2 to 3.4 mmol/L, continuing a slow climb since 2023 (2.9 mmol/L).",
+      summary: "LDL rose from 3.2 to 3.4 mmol/L, continuing a slow climb since 2023.",
       provenance: [
-        { source: "blood.ldl", value: 3.2, scanDate: "2025-08-19" },
-        { source: "blood.ldl", value: 3.4, scanDate: "2026-08-27" },
+        { metric: "blood.ldl", value: 3.2, scanDate: "2025-08-19" },
+        { metric: "blood.ldl", value: 3.4, scanDate: "2026-08-27" },
       ],
     },
     {
@@ -64,62 +67,63 @@ const ELIN_A: PreBriefInput = {
       valence: "improvement",
       summary: "HRV edged up to 49 ms, consistent with steady aerobic fitness.",
       provenance: [
-        { source: "wearables.hrv", value: 48, scanDate: "2025-08-19" },
-        { source: "wearables.hrv", value: 49, scanDate: "2026-08-27" },
-      ],
-    },
-    {
-      id: "elin-d4",
-      metric: "Blood pressure",
-      previousValue: "118/76",
-      currentValue: "120/78",
-      unit: "mmHg",
-      direction: "up",
-      valence: "neutral",
-      summary: "Blood pressure ticked up to 120/78 mmHg, still within a healthy range.",
-      provenance: [
-        { source: "heart.bpSystolic", value: 118, scanDate: "2025-08-19" },
-        { source: "heart.bpSystolic", value: 120, scanDate: "2026-08-27" },
-        { source: "heart.bpDiastolic", value: 78, scanDate: "2026-08-27" },
+        { metric: "wearables.hrv", value: 48, scanDate: "2025-08-19" },
+        { metric: "wearables.hrv", value: 49, scanDate: "2026-08-27" },
       ],
     },
   ],
   findings: [
     {
       id: "elin-f1",
-      title: "Tracked mole enlarging",
+      title: "LDL cholesterol trending up",
       rationale:
-        "The left shoulder-blade mole increased 0.4 mm in diameter over 12 months (4.8 to 5.2 mm). Border and pigmentation remain regular, but the growth rate warrants dermoscopy and a shorter recall interval.",
-      riskTier: "elevated",
+        "LDL has risen from 3.2 to 3.4 mmol/L since last visit, continuing a slow climb. HDL is stable, so overall cardiovascular risk stays low, but the trend is worth addressing with diet before it needs medication.",
+      claim: {
+        kind: "trend",
+        metric: "blood.ldl",
+        from: 3.2,
+        fromDate: "2025-08-19",
+        to: 3.4,
+        toDate: "2026-08-27",
+        direction: "up",
+      },
+      proposedTier: "watch",
       provenance: [
-        { source: "skin.flagged[0].diameterMm", value: 5.2, scanDate: "2026-08-27" },
-        { source: "skin.flagged[0].changeMm", value: 0.4, scanDate: "2026-08-27" },
-        { source: "skin.flagged[0].diameterMm", value: 4.8, scanDate: "2025-08-19" },
+        { metric: "blood.ldl", value: 3.2, scanDate: "2025-08-19" },
+        { metric: "blood.ldl", value: 3.4, scanDate: "2026-08-27" },
       ],
     },
     {
       id: "elin-f2",
-      title: "LDL cholesterol trending up",
+      title: "Tracked mole enlarging",
       rationale:
-        "LDL has risen at every visit since 2023 (2.9 to 3.4 mmol/L). HDL is stable at 1.6 and CRP is low at 0.9 mg/L, so overall cardiovascular risk stays low, but the trajectory is worth addressing with diet before it needs medication.",
-      riskTier: "watch",
+        "The tracked mole on the left shoulder blade grew 0.4 mm since last visit, now 5.2 mm across. Border and colour remain regular, but the growth rate warrants dermoscopy and a shorter recall interval.",
+      claim: {
+        kind: "level",
+        metric: "skin.flagged[0].changeMm",
+        value: 0.4,
+        scanDate: "2026-08-27",
+      },
+      proposedTier: "elevated",
       provenance: [
-        { source: "blood.ldl", value: 2.9, scanDate: "2023-08-10" },
-        { source: "blood.ldl", value: 3.2, scanDate: "2025-08-19" },
-        { source: "blood.ldl", value: 3.4, scanDate: "2026-08-27" },
-        { source: "blood.hdl", value: 1.6, scanDate: "2026-08-27" },
+        { metric: "skin.flagged[0].changeMm", value: 0.4, scanDate: "2026-08-27" },
+        { metric: "skin.flagged[0].diameterMm", value: 5.2, scanDate: "2026-08-27" },
       ],
     },
     {
+      // Planted: the cited value does not match the record (5.9 vs 5.2). The
+      // reconciler rejects this on value tie-out and it goes to the tray.
       id: "elin-f3",
-      title: "Fasting glucose at upper-normal",
-      rationale:
-        "Fasting glucose is 5.2 mmol/L and HbA1c 35 mmol/mol, both within normal limits but at the higher end and slowly rising. No action needed now; recheck at the next visit.",
-      riskTier: "watch",
-      provenance: [
-        { source: "blood.fastingGlucose", value: 5.2, scanDate: "2026-08-27" },
-        { source: "blood.hba1c", value: 35, scanDate: "2026-08-27" },
-      ],
+      title: "Fasting glucose elevated",
+      rationale: "Fasting glucose is 5.9 mmol/L on today's scan, at the top of the normal range and rising.",
+      claim: {
+        kind: "level",
+        metric: "blood.fastingGlucose",
+        value: 5.9,
+        scanDate: "2026-08-27",
+      },
+      proposedTier: "elevated",
+      provenance: [{ metric: "blood.fastingGlucose", value: 5.9, scanDate: "2026-08-27" }],
     },
   ],
   talkingPoints: [
@@ -136,7 +140,7 @@ const ELIN_A: PreBriefInput = {
 };
 
 // ---------------------------------------------------------------------------
-// Marcus B. - invisible risk. First visit, so no deltas. One connected story.
+// Marcus B. - invisible risk. First visit, so no deltas.
 // ---------------------------------------------------------------------------
 const MARCUS_B: PreBriefInput = {
   memberId: "marcus-b",
@@ -146,54 +150,71 @@ const MARCUS_B: PreBriefInput = {
   findings: [
     {
       id: "marcus-f1",
-      title: "Visceral fat well above target",
+      title: "Visceral fat above target",
       rationale:
-        "Visceral fat index is 14, against a target under 10. This is the largest modifiable risk factor in the scan and links directly to the blood-pressure and lipid findings below.",
-      riskTier: "elevated",
-      provenance: [
-        { source: "body.visceralFatIndex", value: 14, scanDate: "2026-08-27" },
-        { source: "body.bodyFatPct", value: 30, scanDate: "2026-08-27" },
-      ],
+        "Visceral fat index is 14, above target. This is the largest modifiable risk factor in the scan and links directly to the blood-pressure and lipid findings.",
+      claim: {
+        kind: "level",
+        metric: "body.visceralFatIndex",
+        value: 14,
+        scanDate: "2026-08-27",
+      },
+      proposedTier: "elevated",
+      provenance: [{ metric: "body.visceralFatIndex", value: 14, scanDate: "2026-08-27" }],
     },
     {
       id: "marcus-f2",
-      title: "Stage 1 hypertension",
+      title: "Blood pressure in stage 1 range",
       rationale:
-        "Blood pressure is 138/89 mmHg with arterial stiffness of 9.6 m/s, above the expected range for age. This is a single reading and needs home monitoring to confirm, but the stiffness measure makes a real trend likely.",
-      riskTier: "elevated",
+        "Blood pressure is 138 over 89 on this first scan, with arterial stiffness of 9.6 above the range for age. A single reading, so it needs home monitoring to confirm, but the stiffness makes a real trend likely.",
+      claim: {
+        kind: "level",
+        metric: "heart.bpSystolic",
+        value: 138,
+        scanDate: "2026-08-27",
+      },
+      proposedTier: "elevated",
       provenance: [
-        { source: "heart.bpSystolic", value: 138, scanDate: "2026-08-27" },
-        { source: "heart.bpDiastolic", value: 89, scanDate: "2026-08-27" },
-        { source: "heart.arterialStiffness", value: 9.6, scanDate: "2026-08-27" },
+        { metric: "heart.bpSystolic", value: 138, scanDate: "2026-08-27" },
+        { metric: "heart.bpDiastolic", value: 89, scanDate: "2026-08-27" },
+        { metric: "heart.arterialStiffness", value: 9.6, scanDate: "2026-08-27" },
       ],
     },
     {
       id: "marcus-f3",
       title: "Low HDL with raised triglycerides",
       rationale:
-        "HDL 1.05 mmol/L with triglycerides 2.1 mmol/L is a metabolic pattern that usually improves with the same changes that address visceral fat. LDL 3.7 mmol/L is borderline.",
-      riskTier: "watch",
+        "HDL is 1.05 mmol/L, on the low side, with triglycerides at 2.1. The same changes that address visceral fat usually lift HDL.",
+      claim: {
+        kind: "level",
+        metric: "blood.hdl",
+        value: 1.05,
+        scanDate: "2026-08-27",
+      },
+      proposedTier: "watch",
       provenance: [
-        { source: "blood.hdl", value: 1.05, scanDate: "2026-08-27" },
-        { source: "blood.triglycerides", value: 2.1, scanDate: "2026-08-27" },
-        { source: "blood.ldl", value: 3.7, scanDate: "2026-08-27" },
+        { metric: "blood.hdl", value: 1.05, scanDate: "2026-08-27" },
+        { metric: "blood.triglycerides", value: 2.1, scanDate: "2026-08-27" },
       ],
     },
     {
+      // Planted: cited HbA1c 44, record has 39. Rejected on value tie-out.
       id: "marcus-f4",
-      title: "HbA1c at the pre-diabetes threshold",
-      rationale:
-        "HbA1c 39 mmol/mol and fasting glucose 5.7 mmol/L sit at the top of the normal range. Worth an early recheck given the visceral fat finding.",
-      riskTier: "watch",
-      provenance: [
-        { source: "blood.hba1c", value: 39, scanDate: "2026-08-27" },
-        { source: "blood.fastingGlucose", value: 5.7, scanDate: "2026-08-27" },
-      ],
+      title: "HbA1c in the pre-diabetes range",
+      rationale: "HbA1c is 44 mmol/mol, in the pre-diabetes range and worth an early recheck.",
+      claim: {
+        kind: "level",
+        metric: "blood.hba1c",
+        value: 44,
+        scanDate: "2026-08-27",
+      },
+      proposedTier: "elevated",
+      provenance: [{ metric: "blood.hba1c", value: 44, scanDate: "2026-08-27" }],
     },
   ],
   talkingPoints: [
     "This is a first scan, so frame everything as a baseline, not a verdict. Marcus had no idea about the visceral fat or blood pressure.",
-    "Connect the findings: visceral fat, blood pressure, HDL and glucose are one story, not four problems.",
+    "Connect the findings: visceral fat, blood pressure and HDL are one story, not three problems.",
     "Ask about home BP monitoring and whether he is open to a structured activity and diet plan.",
   ],
   draftActionPlan: [
@@ -205,8 +226,7 @@ const MARCUS_B: PreBriefInput = {
 };
 
 // ---------------------------------------------------------------------------
-// Priya C. - good news. Broad improvement, no findings to resolve. The tool is
-// not only about alarms: the sign-off gate is satisfied from the start.
+// Priya C. - good news. Broad improvement, no findings, empty tray.
 // ---------------------------------------------------------------------------
 const PRIYA_C: PreBriefInput = {
   memberId: "priya-c",
@@ -221,8 +241,8 @@ const PRIYA_C: PreBriefInput = {
       valence: "improvement",
       summary: "Visceral fat index is 6, down from 11 a year ago and now within the healthy range.",
       provenance: [
-        { source: "body.visceralFatIndex", value: 11, scanDate: "2025-08-25" },
-        { source: "body.visceralFatIndex", value: 6, scanDate: "2026-08-27" },
+        { metric: "body.visceralFatIndex", value: 11, scanDate: "2025-08-25" },
+        { metric: "body.visceralFatIndex", value: 6, scanDate: "2026-08-27" },
       ],
     },
     {
@@ -235,8 +255,8 @@ const PRIYA_C: PreBriefInput = {
       valence: "improvement",
       summary: "LDL is down to 3.0 mmol/L, a steady fall from 3.9 mmol/L last year.",
       provenance: [
-        { source: "blood.ldl", value: 3.9, scanDate: "2025-08-25" },
-        { source: "blood.ldl", value: 3.0, scanDate: "2026-08-27" },
+        { metric: "blood.ldl", value: 3.9, scanDate: "2025-08-25" },
+        { metric: "blood.ldl", value: 3.0, scanDate: "2026-08-27" },
       ],
     },
     {
@@ -249,8 +269,8 @@ const PRIYA_C: PreBriefInput = {
       valence: "improvement",
       summary: "Resting heart rate is 64 bpm, down from 78 bpm a year ago.",
       provenance: [
-        { source: "heart.restingHr", value: 78, scanDate: "2025-08-25" },
-        { source: "heart.restingHr", value: 64, scanDate: "2026-08-27" },
+        { metric: "heart.restingHr", value: 78, scanDate: "2025-08-25" },
+        { metric: "heart.restingHr", value: 64, scanDate: "2026-08-27" },
       ],
     },
     {
@@ -263,8 +283,8 @@ const PRIYA_C: PreBriefInput = {
       valence: "improvement",
       summary: "CRP fell to 0.9 mg/L, from 3.1 mg/L a year ago, and is now low.",
       provenance: [
-        { source: "blood.crp", value: 3.1, scanDate: "2025-08-25" },
-        { source: "blood.crp", value: 0.9, scanDate: "2026-08-27" },
+        { metric: "blood.crp", value: 3.1, scanDate: "2025-08-25" },
+        { metric: "blood.crp", value: 0.9, scanDate: "2026-08-27" },
       ],
     },
   ],
