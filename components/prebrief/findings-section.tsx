@@ -21,12 +21,12 @@ export function FindingsSection({ findings, locked, decide, reopen }: Props) {
       </p>
 
       {findings.length === 0 ? (
-        <p className="mt-4 rounded-card border border-hairline bg-surface p-5 text-sm text-muted shadow-sm">
+        <p className="mt-4 rounded-card border border-hairline bg-surface p-6 text-sm leading-relaxed text-muted shadow-sm">
           No findings in this pre-brief. The scan is broadly reassuring; see the
           changes and talking points below.
         </p>
       ) : (
-        <div className="mt-4 space-y-3">
+        <div className="mt-5 space-y-6">
           {findings.map((finding) => (
             <FindingCard
               key={finding.id}

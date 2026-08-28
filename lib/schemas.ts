@@ -261,6 +261,13 @@ export const DebriefDraftSchema = DebriefSchema.omit({ memberId: true });
 export const AuditEventSchema = z.object({
   at: IsoDateTimeSchema,
   actor: z.enum(["system", "clinician"]),
+  /** Human-readable summary. The structured fields below drive the Activity table. */
   action: z.string(),
   targetId: z.string(),
+  /** The finding this event concerns, by title; "Pre-brief" for whole-brief events. */
+  finding: z.string().optional(),
+  /** Reconciler verdict, on reconciler events. */
+  verdict: z.enum(["grounded", "flagged", "rejected"]).optional(),
+  /** What the actor did: Generated, Accepted, Edited, Dismissed, Reopened, Signed off, ... */
+  outcome: z.string().optional(),
 });

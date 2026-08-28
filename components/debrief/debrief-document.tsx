@@ -4,7 +4,7 @@ import type { Debrief } from "@/lib/types";
 export function DebriefDocument({ debrief }: { debrief: Debrief }) {
   return (
     <article className="rounded-card border border-hairline bg-surface p-6 shadow-sm sm:p-8">
-      <p className="text-base text-ink">{debrief.greeting}</p>
+      <p className="text-sm text-ink">{debrief.greeting}</p>
       <p className="mt-4 text-sm leading-7 text-ink">{debrief.summary}</p>
 
       <Section title="What's going well" items={debrief.whatsGood} />

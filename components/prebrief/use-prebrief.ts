@@ -45,10 +45,8 @@ const keys = {
 
 const TIER_ORDER: Record<RiskTier, number> = { priority: 0, elevated: 1, watch: 2, good: 3 };
 
-function decisionVerb(d: ClinicianDecision): string {
-  if (d.status === "accepted") return "Accepted finding";
-  if (d.status === "edited") return "Edited finding";
-  return "Dismissed finding";
+function decisionOutcome(d: ClinicianDecision): string {
+  return d.status === "accepted" ? "Accepted" : d.status === "edited" ? "Edited" : "Dismissed";
 }
 
 export interface ResolvedFinding extends Finding {
@@ -98,19 +96,24 @@ export function usePreBrief(memberId: string) {
   const prebrief: PreBrief | undefined = response?.prebrief;
   const generatedAt = response?.generatedAt;
 
+  const titleOf = (id: string) =>
+    prebrief?.findings.find((f) => f.id === id)?.title ??
+    response?.rejected.find((r) => r.id === id)?.title ??
+    id;
+
   // Record what the system proposed and how the reconciler ruled, once.
   useEffect(() => {
     if (!response || !prebrief || !generatedAt) return;
-    seedSystemEvent(qc, memberId, "Generated pre-brief", memberId, generatedAt);
+    seedSystemEvent(qc, memberId, "Generated pre-brief", memberId, generatedAt, {
+      finding: "Pre-brief",
+      outcome: "Generated",
+    });
     for (const f of prebrief.findings) {
       const verdict = response.reconciliations[f.id]?.verdict ?? "grounded";
-      seedSystemEvent(
-        qc,
-        memberId,
-        `Reconciler: ${verdict} - ${f.title}`,
-        f.id,
-        generatedAt,
-      );
+      seedSystemEvent(qc, memberId, `Reconciler: ${verdict} - ${f.title}`, f.id, generatedAt, {
+        finding: f.title,
+        verdict,
+      });
     }
     for (const r of response.rejected) {
       seedSystemEvent(
@@ -119,6 +122,7 @@ export function usePreBrief(memberId: string) {
         `Reconciler: rejected - ${r.title} (${r.failedCheck?.name ?? "check failed"})`,
         r.id,
         generatedAt,
+        { finding: r.title, verdict: "rejected" },
       );
     }
   }, [qc, memberId, response, prebrief, generatedAt]);
@@ -130,7 +134,12 @@ export function usePreBrief(memberId: string) {
         ...prev,
         [findingId]: decision,
       }));
-      recordClinicianEvent(qc, memberId, decisionVerb(decision), findingId);
+      const title = titleOf(findingId);
+      const outcome = decisionOutcome(decision);
+      recordClinicianEvent(qc, memberId, `${outcome}: ${title}`, findingId, {
+        finding: title,
+        outcome,
+      });
     },
   });
 
@@ -142,7 +151,11 @@ export function usePreBrief(memberId: string) {
         delete next[findingId];
         return next;
       });
-      recordClinicianEvent(qc, memberId, "Reopened finding", findingId);
+      const title = titleOf(findingId);
+      recordClinicianEvent(qc, memberId, `Reopened: ${title}`, findingId, {
+        finding: title,
+        outcome: "Reopened",
+      });
     },
   });
 
@@ -150,7 +163,10 @@ export function usePreBrief(memberId: string) {
     mutationFn: async () => true,
     onSuccess: () => {
       qc.setQueryData<boolean>(keys.signoff(memberId), true);
-      recordClinicianEvent(qc, memberId, "Signed off pre-brief", memberId);
+      recordClinicianEvent(qc, memberId, "Signed off pre-brief", memberId, {
+        finding: "Pre-brief",
+        outcome: "Signed off",
+      });
     },
   });
 

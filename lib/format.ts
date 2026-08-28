@@ -32,6 +32,15 @@ export function formatTimeSince(dateISO: string, now: Date): string {
   return `${Math.round(months / 12)} years ago`;
 }
 
+/** "19 Aug 2025" - a readable calendar date from a `YYYY-MM-DD` string. */
+export function formatDate(dateISO: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${dateISO}T00:00:00`));
+}
+
 /** "14:32" - clock time from an ISO timestamp, for the activity log. */
 export function formatClockTime(iso: string): string {
   return new Intl.DateTimeFormat("en-GB", {

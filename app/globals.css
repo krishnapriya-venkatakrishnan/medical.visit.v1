@@ -13,6 +13,7 @@
   --surface: #ffffff; /* cards, panels */
   --surface-sunken: #efece4; /* wells, disclaimer bar, data blocks */
   --hairline: #e4e0d6; /* borders, dividers */
+  --icy: #e3edf4; /* cool pale blue - the Member Board gradient foot */
 
   /* Text */
   --ink: #20201d; /* primary text; also = clinician-confirmed state */
@@ -61,6 +62,7 @@
   --color-surface: var(--surface);
   --color-surface-sunken: var(--surface-sunken);
   --color-hairline: var(--hairline);
+  --color-icy: var(--icy);
 
   --color-ink: var(--ink);
   --color-muted: var(--muted);

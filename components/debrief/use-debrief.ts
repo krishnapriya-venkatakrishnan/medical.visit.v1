@@ -53,14 +53,20 @@ export function useDebrief(memberId: string, finalised: FinalisedPreBrief | null
 
   useEffect(() => {
     if (!draft || !generatedAt) return;
-    seedSystemEvent(qc, memberId, "Drafted member debrief", memberId, generatedAt);
+    seedSystemEvent(qc, memberId, "Drafted member debrief", memberId, generatedAt, {
+      finding: "Debrief",
+      outcome: "Drafted",
+    });
   }, [qc, memberId, draft, generatedAt]);
 
   const saveEdits = useMutation({
     mutationFn: async (edited: Debrief) => edited,
     onSuccess: (edited) => {
       qc.setQueryData<Debrief | null>(keys.edits(memberId), edited);
-      recordClinicianEvent(qc, memberId, "Edited member debrief", memberId);
+      recordClinicianEvent(qc, memberId, "Edited member debrief", memberId, {
+        finding: "Debrief",
+        outcome: "Edited",
+      });
     },
   });
 
@@ -68,7 +74,10 @@ export function useDebrief(memberId: string, finalised: FinalisedPreBrief | null
     mutationFn: async () => null,
     onSuccess: () => {
       qc.setQueryData<Debrief | null>(keys.edits(memberId), null);
-      recordClinicianEvent(qc, memberId, "Reverted debrief to the draft", memberId);
+      recordClinicianEvent(qc, memberId, "Reverted debrief to the draft", memberId, {
+        finding: "Debrief",
+        outcome: "Reverted",
+      });
     },
   });
 
@@ -76,7 +85,10 @@ export function useDebrief(memberId: string, finalised: FinalisedPreBrief | null
     mutationFn: async () => true,
     onSuccess: () => {
       qc.setQueryData<boolean>(keys.sent(memberId), true);
-      recordClinicianEvent(qc, memberId, "Sent debrief to member", memberId);
+      recordClinicianEvent(qc, memberId, "Sent debrief to member", memberId, {
+        finding: "Debrief",
+        outcome: "Sent",
+      });
     },
   });
 

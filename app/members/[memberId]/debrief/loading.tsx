@@ -1,9 +1,14 @@
 export default function Loading() {
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
-      <div className="h-4 w-28 rounded bg-surface-sunken" />
-      <div className="mt-6 h-8 w-56 rounded bg-surface-sunken" />
-      <div className="mt-10 h-64 w-full rounded-card bg-surface-sunken" />
+    <main className="flex-1 bg-linear-to-b from-white to-icy">
+      <div className="mx-auto w-full max-w-6xl px-6 py-14">
+        <div className="h-4 w-28 rounded bg-surface-sunken" />
+        <div className="mt-6 h-8 w-56 rounded bg-surface-sunken" />
+        <div className="mt-10 grid gap-x-8 gap-y-12 md:grid-cols-2">
+          <div className="h-96 rounded-card bg-surface-sunken" />
+          <div className="h-64 rounded-card bg-surface-sunken" />
+        </div>
+      </div>
     </main>
   );
 }

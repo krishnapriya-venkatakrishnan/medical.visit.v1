@@ -1,9 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import type { RiskTier } from "@/lib/types";
 import type { ResolvedFinding } from "./use-prebrief";
 import { RiskBadge } from "./risk-badge";
 import { ProvenanceDetails } from "./provenance-details";
+
+// A coloured left stripe per risk tier, so findings are told apart at a glance.
+const TIER_BAR: Record<RiskTier, string> = {
+  priority: "bg-risk-priority-solid",
+  elevated: "bg-risk-elevated-solid",
+  watch: "bg-risk-watch-solid",
+  good: "bg-risk-good-solid",
+};
 
 interface Props {
   finding: ResolvedFinding;
@@ -20,7 +29,7 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
 
   const isUnverified = finding.status === "unverified";
   const isDismissed = finding.status === "dismissed";
-  const { verdict } = finding.reconciliation;
+  const { verdict, derivedTier } = finding.reconciliation;
   const failedCheck = finding.reconciliation.checks.find((c) => !c.passed);
 
   const shell = isUnverified
@@ -35,10 +44,12 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
 
   return (
     <article
-      className={`rounded-card border p-5 shadow-sm ${transition} ${shell} ${
+      className={`relative overflow-hidden rounded-card border p-6 shadow-sm ${transition} ${shell} ${
         isDismissed ? "opacity-70" : ""
       }`}
     >
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${TIER_BAR[derivedTier]}`} />
+
       <div className="flex items-start justify-between gap-3">
         <h3
           className={`text-base font-semibold ${transition} ${
@@ -47,10 +58,10 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
         >
           {finding.title}
         </h3>
-        <RiskBadge tier={finding.reconciliation.derivedTier} />
+        <RiskBadge tier={derivedTier} />
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         {isUnverified ? (
           <span className="inline-flex items-center gap-1 font-medium text-provisional-fg">
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-provisional" />
@@ -77,13 +88,13 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
       </div>
 
       {verdict === "flagged" && failedCheck ? (
-        <p className="mt-2 rounded-control bg-risk-elevated-tint px-3 py-2 text-xs leading-5 text-risk-elevated-fg">
+        <p className="mt-3 rounded-control bg-risk-elevated-tint px-3 py-2 text-xs leading-5 text-risk-elevated-fg">
           Reconciler: {failedCheck.detail}
         </p>
       ) : null}
 
       {editing ? (
-        <div className="mt-3">
+        <div className="mt-4">
           <label className="sr-only" htmlFor={`edit-${finding.id}`}>
             Edit finding {finding.title}
           </label>
@@ -119,7 +130,7 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
         </div>
       ) : (
         <p
-          className={`mt-3 text-sm leading-6 ${transition} ${
+          className={`mt-4 text-sm leading-relaxed ${transition} ${
             isUnverified ? "text-provisional-fg" : "text-ink"
           }`}
         >
@@ -127,7 +138,7 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
         </p>
       )}
 
-      <div className="mt-3">
+      <div className="mt-4">
         <ProvenanceDetails
           refs={finding.provenance}
           tone={isUnverified ? "provisional" : "default"}
@@ -135,7 +146,7 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
       </div>
 
       {!locked && !editing && (
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-hairline pt-3">
+        <div className="mt-5 flex flex-wrap gap-2 border-t border-hairline pt-4">
           {isUnverified ? (
             <>
               <button

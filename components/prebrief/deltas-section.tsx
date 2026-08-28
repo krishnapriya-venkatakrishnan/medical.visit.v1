@@ -27,17 +27,17 @@ export function DeltasSection({
       </h2>
 
       {deltas.length === 0 ? (
-        <p className="mt-3 rounded-card border border-hairline bg-surface p-5 text-sm text-muted shadow-sm">
+        <p className="mt-4 rounded-card border border-hairline bg-surface p-6 text-sm leading-relaxed text-muted shadow-sm">
           {firstVisit
             ? "First visit, so there is no earlier scan to compare against. Today's scan becomes the baseline."
             : "No material changes since the last scan."}
         </p>
       ) : (
-        <ul className="mt-3 space-y-3">
+        <ul className="mt-5 space-y-4">
           {deltas.map((delta) => (
             <li
               key={delta.id}
-              className="rounded-card border border-hairline bg-surface p-5 shadow-sm"
+              className="rounded-card border border-hairline bg-surface p-6 shadow-sm"
             >
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm font-medium text-ink">{delta.metric}</span>

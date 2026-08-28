@@ -10,6 +10,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { AuditEvent } from "@/lib/types";
 
+/** Structured fields that drive the Activity table's columns. */
+export type AuditDetail = Pick<AuditEvent, "finding" | "verdict" | "outcome">;
+
 export function auditKey(memberId: string) {
   return ["prebrief-audit", memberId] as const;
 }
@@ -20,10 +23,11 @@ export function recordClinicianEvent(
   memberId: string,
   action: string,
   targetId: string,
+  detail: AuditDetail = {},
 ) {
   qc.setQueryData<AuditEvent[]>(auditKey(memberId), (prev = []) => [
     ...prev,
-    { at: new Date().toISOString(), actor: "clinician", action, targetId },
+    { at: new Date().toISOString(), actor: "clinician", action, targetId, ...detail },
   ]);
 }
 
@@ -37,11 +41,12 @@ export function seedSystemEvent(
   action: string,
   targetId: string,
   at: string,
+  detail: AuditDetail = {},
 ) {
   qc.setQueryData<AuditEvent[]>(auditKey(memberId), (prev = []) => {
     if (prev.some((e) => e.actor === "system" && e.action === action && e.targetId === targetId)) {
       return prev;
     }
-    return [...prev, { at, actor: "system", action, targetId }];
+    return [...prev, { at, actor: "system", action, targetId, ...detail }];
   });
 }
