@@ -19,6 +19,7 @@ import type {
   FindingSchema,
   ReconCheckSchema,
   ReconciliationSchema,
+  DeltaReconciliationSchema,
   DeltaSchema,
   PreBriefSchema,
   PreBriefDraftSchema,
@@ -45,6 +46,7 @@ export type Delta = z.infer<typeof DeltaSchema>;
 // Deterministic reconciler output (spec section 4.5).
 export type ReconCheck = z.infer<typeof ReconCheckSchema>;
 export type Reconciliation = z.infer<typeof ReconciliationSchema>;
+export type DeltaReconciliation = z.infer<typeof DeltaReconciliationSchema>;
 export type PreBrief = z.infer<typeof PreBriefSchema>;
 export type PreBriefDraft = z.infer<typeof PreBriefDraftSchema>;
 export type FinalisedPreBrief = z.infer<typeof FinalisedPreBriefSchema>;

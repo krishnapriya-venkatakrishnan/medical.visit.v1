@@ -1,13 +1,13 @@
 /**
  * Eval fixtures for the deterministic reconciler (spec section 4.5).
  *
- * A small synthetic record, a CLEAN set (findings that tie out and should pass),
- * and an ADVERSARIAL set of poisoned findings - one per failure mode the
- * reconciler exists to catch. `evals/run.ts` asserts every adversarial case is
- * caught and no clean case is falsely rejected, and prints the two numbers.
+ * A small synthetic record, CLEAN sets (findings and deltas that tie out and
+ * should pass), and ADVERSARIAL sets of poisoned items - one per failure mode the
+ * reconciler exists to catch. `evals/run.ts` asserts every adversarial item is
+ * caught and no clean item is falsely rejected, and prints the two numbers.
  */
 
-import type { Finding, Member } from "../lib/types";
+import type { Delta, Finding, Member } from "../lib/types";
 
 export const record: Member = {
   id: "eval-member",
@@ -99,6 +99,20 @@ export const cleanCases: Array<{ name: string; finding: Finding }> = [
       provenance: [{ metric: "heart.bpSystolic", value: 134, scanDate: "2026-01-01" }],
     }),
   },
+  {
+    name: "metric names in the prose, all backed by provenance",
+    finding: mkFinding({
+      id: "c5",
+      title: "Blood pressure with context",
+      rationale: "Systolic blood pressure is 134 mmHg; resting heart rate is unremarkable.",
+      claim: { kind: "level", metric: "heart.bpSystolic", value: 134, scanDate: "2026-01-01" },
+      proposedTier: "watch",
+      provenance: [
+        { metric: "heart.bpSystolic", value: 134, scanDate: "2026-01-01" },
+        { metric: "heart.restingHr", value: 64, scanDate: "2026-01-01" },
+      ],
+    }),
+  },
 ];
 
 export const adversarialCases: Array<{
@@ -176,5 +190,62 @@ export const adversarialCases: Array<{
       proposedTier: "watch",
       provenance: [{ metric: "blood.ldl", value: 3.6, scanDate: "2026-01-01" }],
     }),
+  },
+  {
+    name: "unbacked metric name in the prose (grip strength, no provenance)",
+    expect: "flagged",
+    finding: mkFinding({
+      id: "a6",
+      title: "Cardiometabolic note",
+      rationale: "LDL is 3.6 mmol/L; grip strength also looks low this year.",
+      claim: { kind: "level", metric: "blood.ldl", value: 3.6, scanDate: "2026-01-01" },
+      proposedTier: "watch",
+      provenance: [{ metric: "blood.ldl", value: 3.6, scanDate: "2026-01-01" }],
+    }),
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Deltas
+// ---------------------------------------------------------------------------
+
+export const cleanDeltas: Array<{ name: string; delta: Delta }> = [
+  {
+    name: "delta ties out, displayed values backed",
+    delta: {
+      id: "cd1",
+      metric: "LDL cholesterol",
+      previousValue: 3.0,
+      currentValue: 3.6,
+      unit: "mmol/L",
+      direction: "up",
+      valence: "concern",
+      summary: "LDL rose from 3.0 to 3.6 mmol/L over the year.",
+      provenance: [
+        { metric: "blood.ldl", value: 3.0, scanDate: "2025-01-01" },
+        { metric: "blood.ldl", value: 3.6, scanDate: "2026-01-01" },
+      ],
+    },
+  },
+];
+
+export const adversarialDeltas: Array<{ name: string; delta: Delta; expect: "rejected" }> = [
+  {
+    name: "fabricated currentValue (delta shows 4.5, record/provenance say 3.6)",
+    expect: "rejected",
+    delta: {
+      id: "ad1",
+      metric: "LDL cholesterol",
+      previousValue: 3.0,
+      currentValue: 4.5,
+      unit: "mmol/L",
+      direction: "up",
+      valence: "concern",
+      summary: "LDL rose to 4.5 mmol/L.",
+      provenance: [
+        { metric: "blood.ldl", value: 3.0, scanDate: "2025-01-01" },
+        { metric: "blood.ldl", value: 3.6, scanDate: "2026-01-01" },
+      ],
+    },
   },
 ];

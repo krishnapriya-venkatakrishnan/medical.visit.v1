@@ -1,14 +1,16 @@
 /**
  * Hardcoded sample pre-briefs, one per synthetic member.
  *
- * These stand in for the model output when no ANTHROPIC_API_KEY is set. They are
- * still run through the deterministic reconciler (`lib/reconcile.ts`), so the
- * demo exercises every verdict:
- *   - grounded  findings tie out and the tier agrees.
- *   - flagged   findings tie out but the model's proposedTier is disputed.
- *   - rejected  findings whose cited value does NOT match the record. These are
+ * These stand in for the model output when no ANTHROPIC_API_KEY is set. Every
+ * finding AND every delta is run through the deterministic reconciler
+ * (`lib/reconcile.ts`), so the demo exercises every verdict:
+ *   - grounded  ties out and (findings) the tier agrees.
+ *   - flagged   (findings only) ties out but a soft check failed, e.g. the
+ *               model's proposedTier is disputed.
+ *   - rejected  a cited/displayed value does NOT tie out to the record. Both a
+ *               finding (elin-f3, marcus-f4) and a delta (elin-d4) are
  *               deliberately planted so the "Caught by reconciler" tray is
- *               populated in the demo. They are obviously illustrative.
+ *               populated in the no-key demo. They are obviously illustrative.
  *
  * Authored against `z.input` of the schema (so `status` can be omitted) and
  * parsed on load, so what this module exports is schema-valid.
@@ -69,6 +71,23 @@ const ELIN_A: PreBriefInput = {
       provenance: [
         { metric: "wearables.hrv", value: 48, scanDate: "2025-08-19" },
         { metric: "wearables.hrv", value: 49, scanDate: "2026-08-27" },
+      ],
+    },
+    {
+      // Planted: the displayed currentValue (7.4) is not backed by provenance
+      // (the record has 6.3). The reconciler rejects this delta on
+      // displayed-value-backing and it goes to the tray.
+      id: "elin-d4",
+      metric: "Arterial stiffness",
+      previousValue: 6.1,
+      currentValue: 7.4,
+      unit: "m/s",
+      direction: "up",
+      valence: "concern",
+      summary: "Arterial stiffness jumped to 7.4 m/s, a notable change.",
+      provenance: [
+        { metric: "heart.arterialStiffness", value: 6.1, scanDate: "2025-08-19" },
+        { metric: "heart.arterialStiffness", value: 6.3, scanDate: "2026-08-27" },
       ],
     },
   ],
@@ -233,9 +252,11 @@ const PRIYA_C: PreBriefInput = {
   headline: "Strong year. Cardiometabolic markers have improved across the board.",
   deltas: [
     {
+      // Provenance compares against a year ago (the "strong year" framing), so
+      // previousValue must match that scan, not the interim one.
       id: "priya-d1",
       metric: "Visceral fat index",
-      previousValue: 7,
+      previousValue: 11,
       currentValue: 6,
       direction: "down",
       valence: "improvement",
@@ -248,7 +269,7 @@ const PRIYA_C: PreBriefInput = {
     {
       id: "priya-d2",
       metric: "LDL cholesterol",
-      previousValue: 3.2,
+      previousValue: 3.9,
       currentValue: 3.0,
       unit: "mmol/L",
       direction: "down",
@@ -262,7 +283,7 @@ const PRIYA_C: PreBriefInput = {
     {
       id: "priya-d3",
       metric: "Resting heart rate",
-      previousValue: 68,
+      previousValue: 78,
       currentValue: 64,
       unit: "bpm",
       direction: "down",
@@ -276,7 +297,7 @@ const PRIYA_C: PreBriefInput = {
     {
       id: "priya-d4",
       metric: "C-reactive protein",
-      previousValue: 1.3,
+      previousValue: 3.1,
       currentValue: 0.9,
       unit: "mg/L",
       direction: "down",

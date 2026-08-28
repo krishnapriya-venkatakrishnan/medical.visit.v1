@@ -4,9 +4,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getMemberById } from "@/lib/fixtures";
 import { getSamplePreBrief } from "@/lib/fixtures/sample-prebriefs";
 import { generatePreBrief, PreBriefGenerationError } from "@/lib/ai/prebrief";
-import { reconcileFindings, type ReconciledFinding } from "@/lib/reconcile";
+import {
+  reconcileDeltas,
+  reconcileFindings,
+  type ReconciledDelta,
+  type ReconciledFinding,
+} from "@/lib/reconcile";
 import { judgeObservation } from "@/lib/ai/judge";
-import type { Member, PreBrief, Reconciliation } from "@/lib/types";
+import type { DeltaReconciliation, Member, PreBrief, Reconciliation } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,10 +23,11 @@ const BodySchema = z.object({ memberId: z.string().min(1) });
  *   -> { prebrief, reconciliations, rejected, generated, generatedAt }
  *
  * The model proposes; the deterministic reconciler (lib/reconcile.ts) disposes.
- * Every finding is reconciled against the record before it is returned:
- *   - grounded / flagged  -> `prebrief.findings`, with its `Reconciliation` in
- *                            `reconciliations` (keyed by finding id).
- *   - rejected            -> `rejected`, never sent as clinical content; the UI
+ * Every finding AND every delta is reconciled against the record before return:
+ *   - grounded / flagged  -> `prebrief.findings` / `prebrief.deltas`, with its
+ *                            reconciliation in `reconciliations` (keyed by id).
+ *   - rejected            -> `rejected` (each item tagged kind "finding" or
+ *                            "delta"), never sent as clinical content; the UI
  *                            shows it in the "Caught by reconciler" tray.
  *
  * `generated: false` means no ANTHROPIC_API_KEY, so the built-in sample stands in
@@ -77,6 +83,7 @@ export async function POST(request: Request) {
 
 async function reconcileResponse(prebrief: PreBrief, member: Member) {
   const { clinical, rejected } = reconcileFindings(prebrief.findings, member);
+  const deltas = reconcileDeltas(prebrief.deltas, member);
 
   // Advisory judge for observational claims only (spec section 4.5). It can move
   // a verdict from grounded to flagged, never the other way.
@@ -91,25 +98,46 @@ async function reconcileResponse(prebrief: PreBrief, member: Member) {
     }),
   );
 
-  const reconciliations: Record<string, Reconciliation> = {};
+  const reconciliations: Record<string, Reconciliation | DeltaReconciliation> = {};
   for (const { finding, reconciliation } of [...clinical, ...rejected]) {
     reconciliations[finding.id] = reconciliation;
   }
+  for (const { delta, reconciliation } of [...deltas.grounded, ...deltas.rejected]) {
+    reconciliations[delta.id] = reconciliation;
+  }
 
   return {
-    prebrief: { ...prebrief, findings: clinical.map((c) => c.finding) },
+    prebrief: {
+      ...prebrief,
+      deltas: deltas.grounded.map((d) => d.delta),
+      findings: clinical.map((c) => c.finding),
+    },
     reconciliations,
-    rejected: rejected.map(serialiseRejected),
+    rejected: [...rejected.map(serialiseRejectedFinding), ...deltas.rejected.map(serialiseRejectedDelta)],
   };
 }
 
-function serialiseRejected({ finding, reconciliation }: ReconciledFinding) {
-  const failed = reconciliation.checks.find((c) => !c.passed);
+function firstFailure(checks: { name: string; detail: string; passed: boolean }[]) {
+  const failed = checks.find((c) => !c.passed);
+  return failed ? { name: failed.name, detail: failed.detail } : null;
+}
+
+function serialiseRejectedFinding({ finding, reconciliation }: ReconciledFinding) {
   return {
+    kind: "finding" as const,
     id: finding.id,
     title: finding.title,
     claim: finding.claim,
     proposedTier: finding.proposedTier,
-    failedCheck: failed ? { name: failed.name, detail: failed.detail } : null,
+    failedCheck: firstFailure(reconciliation.checks),
+  };
+}
+
+function serialiseRejectedDelta({ delta, reconciliation }: ReconciledDelta) {
+  return {
+    kind: "delta" as const,
+    id: delta.id,
+    title: delta.metric,
+    failedCheck: firstFailure(reconciliation.checks),
   };
 }

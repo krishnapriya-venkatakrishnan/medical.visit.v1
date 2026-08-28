@@ -50,9 +50,10 @@ export class PreBriefGenerationError extends Error {
   }
 }
 
-// Opus 5: strongest reasoning, which is what risk-ranking and provenance tracing
-// need. Thinking is on by default; the visible response is JSON only.
-const MODEL = "claude-opus-5";
+// Opus 5 by default: strongest reasoning, which is what risk-ranking and
+// provenance tracing need. Override with ANTHROPIC_MODEL (e.g. "claude-sonnet-5")
+// when the key lacks Opus 5 access. Thinking is on by default; response is JSON only.
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
 const MAX_TOKENS = 8_000;
 const MAX_ATTEMPTS = 2; // one initial attempt + one retry
 

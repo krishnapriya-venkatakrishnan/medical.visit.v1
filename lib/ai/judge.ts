@@ -18,6 +18,9 @@ import { z } from "zod";
 import { anthropic } from "@/lib/ai/client";
 import type { Claim, Member, ReconCheck } from "@/lib/types";
 
+// Same default and override as prebrief.ts (see ANTHROPIC_MODEL in .env.example).
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
+
 const VerdictSchema = z.object({
   supported: z.boolean(),
   reason: z.string(),
@@ -53,7 +56,7 @@ export async function judgeObservation(claim: Claim, member: Member): Promise<Re
   try {
     const client = anthropic();
     const response = await client.messages.create({
-      model: "claude-opus-5",
+      model: MODEL,
       max_tokens: 1_000,
       system: SYSTEM_PROMPT,
       messages: [

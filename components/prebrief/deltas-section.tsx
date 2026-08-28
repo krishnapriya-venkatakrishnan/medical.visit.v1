@@ -13,6 +13,11 @@ const ARROW: Record<Delta["direction"], string> = {
   unchanged: "→",
 };
 
+/**
+ * `deltas` is already filtered to grounded deltas by the route - a delta whose
+ * displayed values do not tie out to the record goes to the "Caught by
+ * reconciler" tray, never here.
+ */
 export function DeltasSection({
   deltas,
   firstVisit,

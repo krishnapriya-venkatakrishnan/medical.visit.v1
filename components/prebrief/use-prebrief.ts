@@ -19,7 +19,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchPreBrief, prebriefQueryKey, type RejectedFinding } from "@/lib/api";
+import { fetchPreBrief, prebriefQueryKey, type RejectedItem } from "@/lib/api";
 import { auditKey, recordClinicianEvent, seedSystemEvent } from "@/lib/audit-cache";
 import type {
   AuditEvent,
@@ -57,7 +57,7 @@ export interface ResolvedFinding extends Finding {
 }
 
 const EMPTY_FINDINGS: ResolvedFinding[] = [];
-const EMPTY_REJECTED: RejectedFinding[] = [];
+const EMPTY_REJECTED: RejectedItem[] = [];
 
 export function usePreBrief(memberId: string) {
   const qc = useQueryClient();
@@ -176,9 +176,11 @@ export function usePreBrief(memberId: string) {
     if (!response || !prebrief) return EMPTY_FINDINGS;
     return [...prebrief.findings]
       .map((f): ResolvedFinding => {
-        const reconciliation =
-          response.reconciliations[f.id] ??
-          ({ findingId: f.id, verdict: "grounded", derivedTier: f.proposedTier, checks: [] } as Reconciliation);
+        const rec = response.reconciliations[f.id];
+        const reconciliation: Reconciliation =
+          rec && "derivedTier" in rec
+            ? rec
+            : { findingId: f.id, verdict: "grounded", derivedTier: f.proposedTier, checks: [] };
         const decision = actions[f.id];
         return {
           ...f,

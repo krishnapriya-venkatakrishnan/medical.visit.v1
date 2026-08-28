@@ -4,36 +4,55 @@
  * ============================================================================
  *
  * This is the module that separates this build from an API wrapper. The model
- * chooses which findings to surface and writes the rationale prose. It does NOT
- * decide whether a number is real, which way a trend goes, or how risky
+ * chooses which findings and deltas to surface and writes the rationale prose. It
+ * does NOT decide whether a number is real, which way a trend goes, or how risky
  * something is - those are computed here, from the record.
  *
- *   reconcile(finding, member) -> Reconciliation
+ *   reconcile(finding, member)      -> Reconciliation
+ *   reconcileDelta(delta, member)   -> DeltaReconciliation
  *
  * Pure and synchronous: no network, no imports beyond the reference-range table,
  * so the eval harness (`evals/`) can hammer it. The one non-deterministic piece,
  * the advisory LLM judge for `observation` claims, is applied separately by the
- * route (`augmentWithJudge`), never here.
+ * route, never here.
  *
- * Check pipeline, hard checks first:
+ * FINDINGS - check pipeline, hard checks first:
  *   1. referential-integrity (hard -> rejected) - every cited metric path and
  *      scanDate exists in the record.
  *   2. value-tie-out         (hard -> rejected) - every cited value exactly
  *      equals the record value at that path + date.
  *   3. trend-consistency     (hard -> rejected) - a trend claim's stated
  *      direction matches sign(to - from) recomputed from the record.
- *   4. tier-derivation       (disagreement -> flagged) - the tier is computed by
+ *   4. tier-derivation       (soft -> flagged) - the tier is computed by
  *      deriveTier(); a mismatch with the model's proposedTier is surfaced for
  *      the clinician, never enacted.
- *   5. prose-coverage        (soft -> flagged) - numbers in the rationale prose
- *      are backed by the provenance set.
+ *   5. prose-coverage        (soft -> flagged) - numbers AND metric names in the
+ *      rationale prose are backed by the provenance set.
  *
- * verdict: rejected if any of checks 1-3 fail; flagged if only 4/5 do; else grounded.
+ * DELTAS - no tier / trend / prose, so every check is hard (grounded or rejected):
+ *   1. referential-integrity - every provenance ref's metric path + scanDate exist.
+ *   2. value-tie-out         - every provenance ref value exactly equals the record.
+ *   3. displayed-value-backing - the shown currentValue equals some provenance ref
+ *      value, and (unless direction is "unchanged") previousValue equals another.
+ *
+ * verdict: rejected if any hard check fails; for findings, flagged if only a soft
+ * check does; else grounded.
  */
 
-import type { Finding, Member, Reconciliation, ReconCheck, RiskTier, Scan } from "@/lib/types";
+import type {
+  Delta,
+  DeltaReconciliation,
+  Finding,
+  Member,
+  ProvenanceRef,
+  Reconciliation,
+  ReconCheck,
+  RiskTier,
+  Scan,
+} from "@/lib/types";
 import { deriveTier } from "@/lib/reference-ranges";
 
+/** Finding checks whose failure rejects (vs the soft checks that only flag). */
 const REJECTING_CHECKS = new Set(["referential-integrity", "value-tie-out", "trend-consistency"]);
 const FLOAT_EPSILON = 1e-9;
 
@@ -72,8 +91,13 @@ function valuesEqual(a: number | string, b: number | string): boolean {
   return String(a) === String(b);
 }
 
+/** Strip the array index so a metric path can be looked up in keyword/range tables. */
+function stripIndex(metric: string): string {
+  return metric.replace(/\[\d+\]/g, "");
+}
+
 // ---------------------------------------------------------------------------
-// Checks
+// Check builders
 // ---------------------------------------------------------------------------
 
 function pass(name: string, severity: ReconCheck["severity"], detail: string): ReconCheck {
@@ -83,18 +107,15 @@ function fail(name: string, severity: ReconCheck["severity"], detail: string): R
   return { name, severity, passed: false, detail };
 }
 
-/** Every provenance ref, and the claim's own metric/date(s), resolve in the record. */
-function checkReferentialIntegrity(finding: Finding, member: Member): ReconCheck {
-  const refs: Array<{ metric: string; scanDate: string }> = [
-    ...finding.provenance.map((p) => ({ metric: p.metric, scanDate: p.scanDate })),
-  ];
-  const c = finding.claim;
-  if (c.kind === "level" || c.kind === "observation") {
-    refs.push({ metric: c.metric, scanDate: c.scanDate });
-  } else {
-    refs.push({ metric: c.metric, scanDate: c.fromDate }, { metric: c.metric, scanDate: c.toDate });
-  }
-
+/**
+ * Referential integrity over an arbitrary set of (metric, scanDate) refs. Returns
+ * the failing ReconCheck, or null when every ref resolves. Shared by findings and
+ * deltas so there is one implementation of "does the record contain this".
+ */
+function refsResolve(
+  refs: ReadonlyArray<{ metric: string; scanDate: string }>,
+  member: Member,
+): ReconCheck | null {
   for (const ref of refs) {
     if (!scanByDate(member, ref.scanDate)) {
       return fail("referential-integrity", "hard", `no scan dated ${ref.scanDate} in the record`);
@@ -107,12 +128,15 @@ function checkReferentialIntegrity(finding: Finding, member: Member): ReconCheck
       );
     }
   }
-  return pass("referential-integrity", "hard", "every cited metric path and date exists in the record");
+  return null;
 }
 
-/** Every cited value exactly matches the record. This is the reconciliation break. */
-function checkValueTieOut(finding: Finding, member: Member): ReconCheck {
-  for (const ref of finding.provenance) {
+/**
+ * Value tie-out over an arbitrary ProvenanceRef[]: each cited value must exactly
+ * equal the record. Returns the failing ReconCheck, or null when all tie out.
+ */
+function refsTieOut(refs: ReadonlyArray<ProvenanceRef>, member: Member): ReconCheck | null {
+  for (const ref of refs) {
     const actual = readMetric(member, ref.metric, ref.scanDate);
     if (actual === undefined || !valuesEqual(actual, ref.value)) {
       return fail(
@@ -122,6 +146,39 @@ function checkValueTieOut(finding: Finding, member: Member): ReconCheck {
       );
     }
   }
+  return null;
+}
+
+const RESOLVED_OK = pass(
+  "referential-integrity",
+  "hard",
+  "every cited metric path and date exists in the record",
+);
+const TIE_OUT_OK = pass("value-tie-out", "hard", "every cited value ties out to the record exactly");
+
+// ---------------------------------------------------------------------------
+// Finding checks
+// ---------------------------------------------------------------------------
+
+/** Every provenance ref, and the claim's own metric/date(s), resolve in the record. */
+function checkReferentialIntegrity(finding: Finding, member: Member): ReconCheck {
+  const refs: Array<{ metric: string; scanDate: string }> = finding.provenance.map((p) => ({
+    metric: p.metric,
+    scanDate: p.scanDate,
+  }));
+  const c = finding.claim;
+  if (c.kind === "level" || c.kind === "observation") {
+    refs.push({ metric: c.metric, scanDate: c.scanDate });
+  } else {
+    refs.push({ metric: c.metric, scanDate: c.fromDate }, { metric: c.metric, scanDate: c.toDate });
+  }
+  return refsResolve(refs, member) ?? RESOLVED_OK;
+}
+
+/** Every cited value exactly matches the record. This is the reconciliation break. */
+function checkValueTieOut(finding: Finding, member: Member): ReconCheck {
+  const provFail = refsTieOut(finding.provenance, member);
+  if (provFail) return provFail;
 
   const c = finding.claim;
   if (c.kind === "level") {
@@ -137,13 +194,21 @@ function checkValueTieOut(finding: Finding, member: Member): ReconCheck {
     const from = readMetric(member, c.metric, c.fromDate);
     const to = readMetric(member, c.metric, c.toDate);
     if (from === undefined || !valuesEqual(from, c.from)) {
-      return fail("value-tie-out", "hard", `claim says ${c.metric} was ${c.from} on ${c.fromDate}; record has ${from ?? "nothing"}`);
+      return fail(
+        "value-tie-out",
+        "hard",
+        `claim says ${c.metric} was ${c.from} on ${c.fromDate}; record has ${from ?? "nothing"}`,
+      );
     }
     if (to === undefined || !valuesEqual(to, c.to)) {
-      return fail("value-tie-out", "hard", `claim says ${c.metric} is ${c.to} on ${c.toDate}; record has ${to ?? "nothing"}`);
+      return fail(
+        "value-tie-out",
+        "hard",
+        `claim says ${c.metric} is ${c.to} on ${c.toDate}; record has ${to ?? "nothing"}`,
+      );
     }
   }
-  return pass("value-tie-out", "hard", "every cited value ties out to the record exactly");
+  return TIE_OUT_OK;
 }
 
 /** A trend claim's direction matches sign(to - from) recomputed from the record. */
@@ -168,7 +233,11 @@ function checkTrendConsistency(finding: Finding, member: Member): ReconCheck {
   return pass("trend-consistency", "hard", `record confirms a ${c.direction} trend (${from} -> ${to})`);
 }
 
-/** Tier is computed from the record. A mismatch with the model is flagged, not enacted. */
+/**
+ * Tier is computed from the record, never taken from the model. This is a SOFT
+ * check throughout: a mismatch is surfaced for the clinician (verdict "flagged"),
+ * it never rejects. Severity and verdict stay aligned.
+ */
 function checkTierDerivation(finding: Finding): { check: ReconCheck; derivedTier: RiskTier } {
   const c = finding.claim;
   if (c.kind === "observation") {
@@ -187,7 +256,11 @@ function checkTierDerivation(finding: Finding): { check: ReconCheck; derivedTier
 
   if (derived === null) {
     return {
-      check: fail("tier-derivation", "soft", `no reference range for "${c.metric}"; tier not independently derived`),
+      check: fail(
+        "tier-derivation",
+        "soft",
+        `no reference range for "${c.metric}"; tier not independently derived`,
+      ),
       derivedTier: finding.proposedTier,
     };
   }
@@ -195,20 +268,52 @@ function checkTierDerivation(finding: Finding): { check: ReconCheck; derivedTier
     return {
       check: fail(
         "tier-derivation",
-        "hard",
+        "soft",
         `model proposed "${finding.proposedTier}"; reference-range tier for ${c.metric} = ${value} is "${derived}"`,
       ),
       derivedTier: derived,
     };
   }
   return {
-    check: pass("tier-derivation", "hard", `reference-range tier "${derived}" matches the model's proposal`),
+    check: pass(
+      "tier-derivation",
+      "soft",
+      `reference-range tier "${derived}" matches the model's proposal`,
+    ),
     derivedTier: derived,
   };
 }
 
-/** Numbers in the rationale prose are backed by the provenance set. Lenient: soft. */
+/**
+ * Metric name -> keyword(s). A keyword is "covered" when a provenance ref's
+ * metric maps to it. Any keyword that appears in the rationale but is not covered
+ * is an unbacked metric mention. Conservative and case-insensitive; substring
+ * match, so plurals ("moles", "triglycerides") are caught.
+ */
+const METRIC_KEYWORDS: Record<string, string[]> = {
+  "blood.ldl": ["ldl"],
+  "blood.hba1c": ["hba1c"],
+  "blood.crp": ["crp"],
+  "blood.triglycerides": ["triglyceride"],
+  "blood.fastingGlucose": ["glucose"],
+  "heart.bpSystolic": ["systolic", "blood pressure"],
+  "heart.bpDiastolic": ["diastolic"],
+  "heart.restingHr": ["resting heart"],
+  "heart.arterialStiffness": ["arterial stiffness"],
+  "body.visceralFatIndex": ["visceral fat"],
+  "body.bodyFatPct": ["body fat"],
+  "body.gripStrengthKg": ["grip strength"],
+  "skin.flagged.diameterMm": ["mole", "lesion"],
+  "skin.flagged.changeMm": ["mole", "lesion"],
+};
+const ALL_METRIC_KEYWORDS = [...new Set(Object.values(METRIC_KEYWORDS).flat())];
+
+/**
+ * Numbers and metric names in the rationale prose are backed by the provenance
+ * set. Lenient: SOFT (flag, never reject).
+ */
 function checkProseCoverage(finding: Finding, member: Member): ReconCheck {
+  // --- backed numbers ---
   const covered = new Set<string>();
   for (const ref of finding.provenance) {
     covered.add(String(ref.value));
@@ -224,26 +329,44 @@ function checkProseCoverage(finding: Finding, member: Member): ReconCheck {
   const coveredNums = [...covered].map(Number).filter((n) => !Number.isNaN(n));
 
   const tokens = finding.rationale.match(/\d+(?:\.\d+)?/g) ?? [];
-  const uncovered = tokens.filter((tok) => {
-    if (/^(19|20)\d\d$/.test(tok)) return false; // years
-    if (tok.length === 1) return false; // ordinals, "1-3 sentences" etc.
-    const n = Number(tok);
-    if (covered.has(tok)) return false;
-    return !coveredNums.some((cn) => Math.abs(cn - n) < 0.05);
-  });
+  const uncoveredNums = [
+    ...new Set(
+      tokens.filter((tok) => {
+        if (/^(19|20)\d\d$/.test(tok)) return false; // years
+        if (tok.length === 1) return false; // ordinals, "1-3 sentences" etc.
+        const n = Number(tok);
+        if (covered.has(tok)) return false;
+        return !coveredNums.some((cn) => Math.abs(cn - n) < 0.05);
+      }),
+    ),
+  ];
 
-  if (uncovered.length > 0) {
+  // --- backed metric names ---
+  const coveredKeywords = new Set<string>();
+  for (const ref of finding.provenance) {
+    for (const kw of METRIC_KEYWORDS[stripIndex(ref.metric)] ?? []) coveredKeywords.add(kw);
+  }
+  const lowerRationale = finding.rationale.toLowerCase();
+  const uncoveredKeywords = ALL_METRIC_KEYWORDS.filter(
+    (kw) => lowerRationale.includes(kw) && !coveredKeywords.has(kw),
+  );
+
+  const problems: string[] = [];
+  if (uncoveredNums.length) problems.push(`numbers ${uncoveredNums.join(", ")}`);
+  if (uncoveredKeywords.length) problems.push(`metrics "${uncoveredKeywords.join('", "')}"`);
+
+  if (problems.length) {
     return fail(
       "prose-coverage",
       "soft",
-      `rationale mentions ${[...new Set(uncovered)].join(", ")} with no matching provenance entry`,
+      `rationale mentions ${problems.join("; ")} with no matching provenance`,
     );
   }
-  return pass("prose-coverage", "soft", "every number in the rationale is backed by provenance");
+  return pass("prose-coverage", "soft", "every number and metric in the rationale is backed by provenance");
 }
 
 // ---------------------------------------------------------------------------
-// Entry point
+// Finding entry point
 // ---------------------------------------------------------------------------
 
 export function reconcile(finding: Finding, member: Member): Reconciliation {
@@ -281,7 +404,7 @@ export interface ReconciledFinding {
   reconciliation: Reconciliation;
 }
 
-/** Reconcile a batch and split it: clinical content vs the "caught" tray. */
+/** Reconcile a batch of findings and split it: clinical content vs the "caught" tray. */
 export function reconcileFindings(
   findings: Finding[],
   member: Member,
@@ -293,4 +416,73 @@ export function reconcileFindings(
     (reconciliation.verdict === "rejected" ? rejected : clinical).push({ finding, reconciliation });
   }
   return { clinical, rejected };
+}
+
+// ---------------------------------------------------------------------------
+// Delta checks + entry point
+// ---------------------------------------------------------------------------
+
+/**
+ * The values the delta actually displays (currentValue, and previousValue unless
+ * the direction is "unchanged") must each be backed by a provenance ref. Prevents
+ * a delta from rendering previous -> current with a fabricated endpoint even when
+ * the provenance itself ties out.
+ */
+function checkDisplayedValueBacking(delta: Delta): ReconCheck {
+  const provValues = delta.provenance.map((p) => p.value);
+
+  const currentIdx = provValues.findIndex((v) => valuesEqual(v, delta.currentValue));
+  if (currentIdx === -1) {
+    return fail(
+      "displayed-value-backing",
+      "hard",
+      `currentValue ${delta.currentValue} is not backed by any provenance entry`,
+    );
+  }
+
+  if (delta.direction !== "unchanged") {
+    const prevBacked = provValues.some((v, i) => i !== currentIdx && valuesEqual(v, delta.previousValue));
+    if (!prevBacked) {
+      return fail(
+        "displayed-value-backing",
+        "hard",
+        `previousValue ${delta.previousValue} is not backed by a separate provenance entry`,
+      );
+    }
+  }
+  return pass("displayed-value-backing", "hard", "the displayed values are backed by provenance");
+}
+
+export function reconcileDelta(delta: Delta, member: Member): DeltaReconciliation {
+  const referential = refsResolve(delta.provenance, member) ?? RESOLVED_OK;
+  if (!referential.passed) {
+    return { deltaId: delta.id, verdict: "rejected", checks: [referential] };
+  }
+
+  const tieOut = refsTieOut(delta.provenance, member) ?? TIE_OUT_OK;
+  const backing = checkDisplayedValueBacking(delta);
+  const checks = [referential, tieOut, backing];
+
+  // Deltas have no soft checks: any failure rejects.
+  const rejected = checks.some((c) => !c.passed);
+  return { deltaId: delta.id, verdict: rejected ? "rejected" : "grounded", checks };
+}
+
+export interface ReconciledDelta {
+  delta: Delta;
+  reconciliation: DeltaReconciliation;
+}
+
+/** Reconcile a batch of deltas and split it, mirroring `reconcileFindings`. */
+export function reconcileDeltas(
+  deltas: Delta[],
+  member: Member,
+): { grounded: ReconciledDelta[]; rejected: ReconciledDelta[] } {
+  const grounded: ReconciledDelta[] = [];
+  const rejected: ReconciledDelta[] = [];
+  for (const delta of deltas) {
+    const reconciliation = reconcileDelta(delta, member);
+    (reconciliation.verdict === "rejected" ? rejected : grounded).push({ delta, reconciliation });
+  }
+  return { grounded, rejected };
 }

@@ -194,6 +194,16 @@ export const ReconciliationSchema = z.object({
   checks: z.array(ReconCheckSchema),
 });
 
+/**
+ * Reconciliation for a delta. Deltas have no tier, trend or prose to check, so
+ * every check is hard: a delta is either grounded or rejected (spec section 4.5).
+ */
+export const DeltaReconciliationSchema = z.object({
+  deltaId: z.string(),
+  verdict: z.enum(["grounded", "rejected"]),
+  checks: z.array(ReconCheckSchema),
+});
+
 /** A signed change since the previous scan. `valence` is the "good / bad" sign. */
 export const DeltaSchema = z.object({
   id: z.string(),
