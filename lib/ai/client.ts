@@ -17,3 +17,15 @@ export function anthropic(): Anthropic {
     workspaceId ? { defaultHeaders: { "anthropic-workspace-id": workspaceId } } : {},
   );
 }
+
+/**
+ * The single Anthropic call each generator makes, isolated behind a function type
+ * so tests can inject a fake with no SDK and no network. Production code uses
+ * `defaultCreateMessage`; nothing else changes.
+ */
+export type CreateMessage = (
+  params: Anthropic.MessageCreateParamsNonStreaming,
+) => Promise<Anthropic.Message>;
+
+export const defaultCreateMessage: CreateMessage = (params) =>
+  anthropic().messages.create(params);

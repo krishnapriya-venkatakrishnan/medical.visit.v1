@@ -7,37 +7,10 @@
  * caught and no clean item is falsely rejected, and prints the two numbers.
  */
 
-import type { Delta, Finding, Member } from "../lib/types";
+import type { Delta, Finding } from "../lib/types";
+import { record } from "../tests/fixtures";
 
-export const record: Member = {
-  id: "eval-member",
-  displayName: "Eval E.",
-  firstVisit: false,
-  scans: [
-    {
-      date: "2025-01-01",
-      skin: {
-        molesTracked: 1,
-        flagged: [{ id: "m1", location: "upper back", diameterMm: 4.0, changeMm: 0.1, notes: "" }],
-      },
-      heart: { restingHr: 60, bpSystolic: 120, bpDiastolic: 78, ecgNotes: "NSR", arterialStiffness: 6.0 },
-      blood: { ldl: 3.0, hdl: 1.4, triglycerides: 1.0, hba1c: 34, crp: 0.8, fastingGlucose: 5.0 },
-      body: { visceralFatIndex: 8, bodyFatPct: 24, gripStrengthKg: 34 },
-      wearables: { avgSteps: 8000, avgSleepHrs: 7.0, hrv: 45 },
-    },
-    {
-      date: "2026-01-01",
-      skin: {
-        molesTracked: 1,
-        flagged: [{ id: "m1", location: "upper back", diameterMm: 4.5, changeMm: 0.5, notes: "" }],
-      },
-      heart: { restingHr: 64, bpSystolic: 134, bpDiastolic: 82, ecgNotes: "NSR", arterialStiffness: 7.0 },
-      blood: { ldl: 3.6, hdl: 1.3, triglycerides: 1.2, hba1c: 37, crp: 1.0, fastingGlucose: 5.3 },
-      body: { visceralFatIndex: 11, bodyFatPct: 27, gripStrengthKg: 33 },
-      wearables: { avgSteps: 7000, avgSleepHrs: 6.8, hrv: 42 },
-    },
-  ],
-};
+export { record };
 
 function mkFinding(f: Omit<Finding, "status">): Finding {
   return { ...f, status: "unverified" };

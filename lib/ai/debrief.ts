@@ -18,9 +18,9 @@
 
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
-import { anthropic } from "@/lib/ai/client";
+import { defaultCreateMessage, type CreateMessage } from "@/lib/ai/client";
 import { DebriefDraftSchema, DebriefSchema } from "@/lib/schemas";
 import type { Debrief, FinalisedPreBrief } from "@/lib/types";
 
@@ -94,9 +94,8 @@ function extractText(message: Anthropic.Message): string {
 export async function generateDebrief(
   finalised: FinalisedPreBrief,
   memberName: string,
+  createMessage: CreateMessage = defaultCreateMessage,
 ): Promise<Debrief> {
-  const client = anthropic();
-
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserMessage(finalised, memberName) },
   ];
@@ -106,7 +105,7 @@ export async function generateDebrief(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let raw: string;
     try {
-      const response = await client.messages.create({
+      const response = await createMessage({
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: SYSTEM_PROMPT,

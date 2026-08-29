@@ -34,9 +34,9 @@
 
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
-import { anthropic } from "@/lib/ai/client";
+import { defaultCreateMessage, type CreateMessage } from "@/lib/ai/client";
 import { PreBriefDraftSchema, PreBriefSchema } from "@/lib/schemas";
 import type { Member, PreBrief } from "@/lib/types";
 
@@ -155,11 +155,13 @@ function extractText(message: Anthropic.Message): string {
  * if the model never returns schema-valid JSON.
  *
  * The caller must have ANTHROPIC_API_KEY set; the route handler checks that and
- * falls back to a sample when it is missing.
+ * falls back to a sample when it is missing. `createMessage` is the seam for
+ * tests: production passes nothing and the real Anthropic client is used.
  */
-export async function generatePreBrief(member: Member): Promise<PreBrief> {
-  const client = anthropic();
-
+export async function generatePreBrief(
+  member: Member,
+  createMessage: CreateMessage = defaultCreateMessage,
+): Promise<PreBrief> {
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: buildUserMessage(member) },
   ];
@@ -169,7 +171,7 @@ export async function generatePreBrief(member: Member): Promise<PreBrief> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let raw: string;
     try {
-      const response = await client.messages.create({
+      const response = await createMessage({
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: SYSTEM_PROMPT,

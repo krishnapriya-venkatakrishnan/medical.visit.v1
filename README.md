@@ -49,18 +49,18 @@ risk tier is always the record-derived tier, never the model's.
 
 `CLAUDE.md` has the full five-point constitution.
 
-### Reconciler eval
+### Testing
 
-`npm run eval` runs an adversarial harness against `reconcile()` and
-`reconcileDelta()`: a clean set that should pass, and one poisoned item per
-failure mode (fabricated number, flipped trend, hallucinated metric,
-over-escalated tier, unbacked prose number, unbacked metric name, and a delta
-with a fabricated `currentValue`). It reports:
+Three layers, kept strictly separate:
 
-```
-catch rate            100%  (7/7 adversarial caught)
-false-rejection rate  0%    (0/6 clean rejected)
-```
+| Command | What it does |
+| --- | --- |
+| `npm test` | Deterministic unit tests (vitest). No network, no API key read. Covers the reconciler verdict-by-verdict (`tests/reconcile.*`) and the model *plumbing* with a fake `createMessage` - JSON parsing, one retry, schema rejection, the route's 400 / 404 / 429 / 502 / sample paths (`tests/*.plumbing`, `tests/*.route`). |
+| `npm run eval` | The adversarial reconciler harness. A clean set plus one poisoned item per failure mode (fabricated number, flipped trend, hallucinated metric, over-escalated tier, unbacked prose number, unbacked metric name, fabricated delta `currentValue`). Reports `catch rate 100% (7/7)` / `false-rejection rate 0% (0/6)`. |
+| `npm run eval:model` | A **live** model-quality eval. Makes one real Anthropic call per fixture member and asserts *properties* (output passes the schema; every generated finding reconciles to grounded or flagged, never rejected; a first visit has no deltas or trend claims; every `claim.metric` resolves in the record). Prints `skipped (no API key)` and exits 0 when `ANTHROPIC_API_KEY` is unset. |
+
+`tests/reconcile.*` and `npm run eval` share one synthetic record
+(`tests/fixtures.ts`) so unit and eval data cannot drift.
 
 ## The three screens
 
@@ -120,7 +120,7 @@ a key** both are generated live by `claude-opus-5` (override with
 `ANTHROPIC_WORKSPACE_ID`.
 
 Scripts: `npm run dev` · `npm run build` · `npm run start` · `npm run lint` ·
-`npm run typecheck` · `npm run eval`.
+`npm run typecheck` · `npm test` · `npm run eval` · `npm run eval:model`.
 
 ## Stack
 
@@ -144,7 +144,8 @@ lib/
   fixtures/                    three synthetic members + sample pre-briefs
   diff.ts                      word-level diff for the flywheel signal
   audit-cache.ts               the append-only audit log
-evals/                         adversarial eval for the reconciler (npm run eval)
+evals/                         reconciler harness (npm run eval) + live model eval (npm run eval:model)
+tests/                          deterministic unit tests (npm test); tests/fixtures.ts is shared with evals/
 ```
 
 ## Deploy (Vercel)

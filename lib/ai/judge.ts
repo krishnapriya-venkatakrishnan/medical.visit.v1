@@ -13,9 +13,9 @@
 
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { anthropic } from "@/lib/ai/client";
+import { defaultCreateMessage, type CreateMessage } from "@/lib/ai/client";
 import type { Claim, Member, ReconCheck } from "@/lib/types";
 
 // Same default and override as prebrief.ts (see ANTHROPIC_MODEL in .env.example).
@@ -40,7 +40,11 @@ Return ONE JSON object, no prose, no fences:
  * Returns a soft `ReconCheck` to append to the finding's reconciliation.
  * `passed: false` should downgrade a `grounded` verdict to `flagged`.
  */
-export async function judgeObservation(claim: Claim, member: Member): Promise<ReconCheck> {
+export async function judgeObservation(
+  claim: Claim,
+  member: Member,
+  createMessage: CreateMessage = defaultCreateMessage,
+): Promise<ReconCheck> {
   if (claim.kind !== "observation") {
     return { name: "observation-judge", severity: "soft", passed: true, detail: "not an observational claim" };
   }
@@ -54,8 +58,7 @@ export async function judgeObservation(claim: Claim, member: Member): Promise<Re
   }
 
   try {
-    const client = anthropic();
-    const response = await client.messages.create({
+    const response = await createMessage({
       model: MODEL,
       max_tokens: 1_000,
       system: SYSTEM_PROMPT,

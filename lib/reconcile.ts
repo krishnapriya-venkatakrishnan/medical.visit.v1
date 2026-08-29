@@ -54,7 +54,14 @@ import { deriveTier } from "@/lib/reference-ranges";
 
 /** Finding checks whose failure rejects (vs the soft checks that only flag). */
 const REJECTING_CHECKS = new Set(["referential-integrity", "value-tie-out", "trend-consistency"]);
-const FLOAT_EPSILON = 1e-9;
+
+/**
+ * Two numbers count as "the same value" within this tolerance. Clinical values
+ * carry at most two decimals, so 1e-6 is far below any meaningful increment yet
+ * still absorbs floating-point representation noise from a faithful copy. Every
+ * real fabrication in the eval and the samples differs by >= 0.4.
+ */
+const FLOAT_EPSILON = 1e-6;
 
 // ---------------------------------------------------------------------------
 // Record access
@@ -423,10 +430,12 @@ export function reconcileFindings(
 // ---------------------------------------------------------------------------
 
 /**
- * The values the delta actually displays (currentValue, and previousValue unless
- * the direction is "unchanged") must each be backed by a provenance ref. Prevents
- * a delta from rendering previous -> current with a fabricated endpoint even when
- * the provenance itself ties out.
+ * The values the delta actually displays must each be backed by a provenance ref:
+ * currentValue always, and previousValue by a *separate* ref whenever it differs
+ * from currentValue (regardless of the stated direction). When previousValue and
+ * currentValue are equal, one ref backs both. Prevents a delta from rendering
+ * previous -> current with a fabricated endpoint even when the provenance itself
+ * ties out.
  */
 function checkDisplayedValueBacking(delta: Delta): ReconCheck {
   const provValues = delta.provenance.map((p) => p.value);
@@ -440,7 +449,7 @@ function checkDisplayedValueBacking(delta: Delta): ReconCheck {
     );
   }
 
-  if (delta.direction !== "unchanged") {
+  if (!valuesEqual(delta.previousValue, delta.currentValue)) {
     const prevBacked = provValues.some((v, i) => i !== currentIdx && valuesEqual(v, delta.previousValue));
     if (!prevBacked) {
       return fail(
