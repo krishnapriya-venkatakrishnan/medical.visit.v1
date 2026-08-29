@@ -1,0 +1,32 @@
+{
+  "date": "2026-08-29",
+  "skin": {
+    "molesTracked": 12,
+    "flagged": [
+      {
+        "id": "elin-mole-1",
+        "location": "left shoulder blade",
+        "diameterMm": 5.3,
+        "changeMm": 0.1,
+        "notes": "Border regular, colour uniform. Minor increase since last visit."
+      }
+    ]
+  },
+  "heart": {
+    "restingHr": 63,
+    "bpSystolic": 126,
+    "bpDiastolic": 80,
+    "ecgNotes": "Normal sinus rhythm.",
+    "arterialStiffness": 6.5
+  },
+  "blood": {
+    "ldl": 4.1,
+    "hdl": 1.4,
+    "triglycerides": 1.5,
+    "hba1c": 37,
+    "crp": 1.1,
+    "fastingGlucose": 5.4
+  },
+  "body": { "visceralFatIndex": 14, "bodyFatPct": 29, "gripStrengthKg": 32 },
+  "wearables": { "avgSteps": 7200, "avgSleepHrs": 6.7, "hrv": 44 }
+}

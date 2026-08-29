@@ -8,16 +8,18 @@ interface Props {
   locked: boolean;
   decide: (findingId: string, decision: ClinicianDecision) => void;
   reopen: (findingId: string) => void;
+  /** Overrides the default sub-heading (e.g. on the Demo tab, where there is no sign-off). */
+  subtitle?: string;
 }
 
-export function FindingsSection({ findings, locked, decide, reopen }: Props) {
+export function FindingsSection({ findings, locked, decide, reopen, subtitle }: Props) {
   return (
     <section aria-labelledby="findings-heading">
       <h2 id="findings-heading" className="text-lg font-semibold text-ink">
         Findings
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Risk-ranked. Each must be accepted, edited, or dismissed before sign-off.
+        {subtitle ?? "Risk-ranked. Each must be accepted, edited, or dismissed before sign-off."}
       </p>
 
       {findings.length === 0 ? (

@@ -77,7 +77,7 @@ export function FindingCard({ finding, locked, onAccept, onEdit, onDismiss, onRe
 
         {verdict === "grounded" ? (
           <span className="inline-flex items-center gap-1 text-muted">
-            <span aria-hidden>&checkmark;</span> reconciled
+            <span aria-hidden>✓</span> reconciled
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 font-medium text-risk-elevated-fg">

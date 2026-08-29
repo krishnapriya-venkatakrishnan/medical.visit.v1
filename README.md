@@ -55,14 +55,24 @@ Three layers, kept strictly separate:
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Deterministic unit tests (vitest). No network, no API key read. Covers the reconciler verdict-by-verdict (`tests/reconcile.*`) and the model *plumbing* with a fake `createMessage` - JSON parsing, one retry, schema rejection, the route's 400 / 404 / 429 / 502 / sample paths (`tests/*.plumbing`, `tests/*.route`). |
+| `npm test` | Deterministic unit tests (vitest). No network, no API key read. Covers the reconciler verdict-by-verdict (`tests/reconcile.*`) and the model *plumbing* with a fake `createMessage` - JSON parsing, one retry, schema rejection, and both route surfaces: the Regression route's 400 / 404 / 429 / 502 / sample paths and the Demo route's 400 (shape) / 503 (no key) / 502 / live paths (`tests/*.plumbing`, `tests/*.route`). |
 | `npm run eval` | The adversarial reconciler harness. A clean set plus one poisoned item per failure mode (fabricated number, flipped trend, hallucinated metric, over-escalated tier, unbacked prose number, unbacked metric name, fabricated delta `currentValue`). Reports `catch rate 100% (7/7)` / `false-rejection rate 0% (0/6)`. |
 | `npm run eval:model` | A **live** model-quality eval. Makes one real Anthropic call per fixture member and asserts *properties* (output passes the schema; every generated finding reconciles to grounded or flagged, never rejected; a first visit has no deltas or trend claims; every `claim.metric` resolves in the record). Prints `skipped (no API key)` and exits 0 when `ANTHROPIC_API_KEY` is unset. |
 
 `tests/reconcile.*` and `npm run eval` share one synthetic record
 (`tests/fixtures.ts`) so unit and eval data cannot drift.
 
-## The three screens
+## Two tabs
+
+A side nav splits the app in two:
+
+- **Regression** (`/`, `/members/[id]`, `/members/[id]/debrief`) - the hardcoded
+  synthetic members. This is the frozen suite the reconciler eval runs against.
+- **Demo** (`/demo`) - upload one scan, get a live reconciled result. No
+  hardcoded input, no hardcoded result: a scan in, a pre-brief out, or a clear
+  status saying why it could not run.
+
+### Regression screens
 
 | Screen | What it does |
 | --- | --- |
@@ -70,9 +80,46 @@ Three layers, kept strictly separate:
 | **Pre-Brief** (`/members/[id]`) | What changed since last visit (reconciled deltas); risk-ranked findings, each reconciled, with a provenance disclosure and accept / edit / dismiss controls; the "Caught by reconciler" tray (rejected findings and changes); talking points and a draft plan; the sign-off gate. |
 | **Debrief** (`/members/[id]/debrief`) | A member-facing draft in a calm, plain-language voice. The clinician edits inline; the diff between the AI draft and the sent version is shown as the flywheel teaching signal. An audit trail panel lists every event. |
 
+### Demo tab
+
+`POST /api/demo/prebrief` takes a `Scan` in the body and is input-only,
+live-only:
+
+- not a shape-valid `Scan` (`ScanSchema`) -> **400** with the first Zod issue,
+  with or without a key (`demo-scan-malformed.json` demonstrates this);
+- no `ANTHROPIC_API_KEY` -> **503**. The Demo tab never serves a sample; it says
+  so plainly rather than showing a stale result;
+- otherwise the scan becomes an ephemeral first-visit member (one scan, no
+  history, so no deltas or trend claims), a pre-brief is generated from it, and
+  every finding is reconciled against that same scan.
+
+**Trust boundary:** the uploaded scan is trusted, *structured* ground truth. It
+is validated for shape only and then *is* the record the reconciler ties
+against. The record is never extracted from unstructured text by a model.
+
+The screen shows the process as four steps (input parsed -> shape validated ->
+pre-brief generated -> claims reconciled), each marked pending / active / done /
+failed, plus an overall Idle / Running / Done / Stopped status. Bundled synthetic
+scans live in `public/sample-scans/` (clean / borderline / malformed / a
+first-visit scan with out-of-range blood pressure).
+
+The result then carries the same clinician-in-the-loop review as Regression:
+accept / edit / dismiss each finding, a sign-off gate that stays inert until every
+finding is resolved, and, once signed off, a member debrief drafted live from the
+finalised brief (`POST /api/demo/debrief`, also live-only: no key -> 503). The
+debrief draft is editable inline, with the word-level flywheel diff against the
+AI version. A **Mark complete** button ends the run and reloads
+the tab for the next scan.
+
+**The synthetic fixtures (`lib/fixtures/`) and the reconciler eval (`evals/`,
+`tests/fixtures.ts`) are a frozen regression suite.** The Demo tab is stateless
+and never touches them.
+
 ## How the AI is wired in
 
-The pre-brief and debrief are generated live by the Anthropic API inside the
+Both tabs share one server-side reconcile step (`lib/reconcile-response.ts`); the
+model is called by `lib/ai/prebrief.ts` either way. The pre-brief and debrief are
+generated live by the Anthropic API inside the
 backend (`lib/ai/prebrief.ts`, `lib/ai/debrief.ts`), not by any client code. Each
 finding's factual claim is emitted in a structured shape (`level` | `trend` |
 `observation`) so it can be checked. The response is:
@@ -87,6 +134,14 @@ finding's factual claim is emitted in a structured shape (`level` | `trend` |
 **Unvalidated or unreconciled model output is never displayed as clinical
 content.** `ANTHROPIC_API_KEY` is read server-side only, in the route handlers and
 `lib/ai/`.
+
+The response carries a `raw` copy of the model output (shape-validated,
+pre-reconciler), including any findings or deltas the reconciler went on to
+reject. The **View full AI response** button on the AI-readiness card, on both
+tabs, opens that `raw` object as JSON. So the flagged prose you see on a finding
+card ("rationale mentions metrics \"blood pressure\" with no matching
+provenance") is a `prose-coverage` soft check in `lib/reconcile.ts`; the sentence
+it flags is the model's own `rationale` field, visible verbatim in that JSON.
 
 ## Scope & honesty
 
@@ -129,21 +184,27 @@ TanStack Query · Zod · `@anthropic-ai/sdk` (server-side only). Deploy target: 
 
 ```
 app/
-  page.tsx                     Member Board
+  page.tsx                     Member Board (Regression tab)
   members/[memberId]/          Pre-Brief screen
   members/[memberId]/debrief/  Debrief screen
-  api/prebrief/ api/debrief/   Route handlers (Anthropic calls, Zod validation)
+  demo/                        Demo tab: upload a scan, live reconciled result
+  api/prebrief/ api/debrief/   Regression route handlers (Anthropic calls, Zod validation)
+  api/demo/prebrief/           Demo route handler: ScanSchema gate, live-only, no sample
 components/
-  member-board/ prebrief/ debrief/ audit/ ui/
+  app-nav.tsx                  the Regression / Demo side nav
+  member-board/ prebrief/ debrief/ demo/ audit/ ui/
 lib/
   schemas.ts                   Zod schemas: the source of truth for the data model and AI I/O
   types.ts                     types, all inferred from the schemas
   reconcile.ts                 the deterministic reconciler (pure, synchronous)
+  reconcile-response.ts        the shared server step: reconcile + shape for the client
   reference-ranges.ts          illustrative bands + deriveTier()
   ai/                          the AI boundary, SERVER ONLY (prebrief, debrief, judge, client)
-  fixtures/                    three synthetic members + sample pre-briefs
+  fixtures/                    three synthetic members + sample pre-briefs (frozen)
   diff.ts                      word-level diff for the flywheel signal
   audit-cache.ts               the append-only audit log
+public/
+  sample-scans/                synthetic scans for the Demo tab (clean / borderline / malformed)
 evals/                         reconciler harness (npm run eval) + live model eval (npm run eval:model)
 tests/                          deterministic unit tests (npm test); tests/fixtures.ts is shared with evals/
 ```

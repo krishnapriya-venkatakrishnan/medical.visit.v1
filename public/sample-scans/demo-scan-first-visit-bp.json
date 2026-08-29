@@ -1,0 +1,24 @@
+{
+  "date": "2026-08-29",
+  "skin": {
+    "molesTracked": 8,
+    "flagged": []
+  },
+  "heart": {
+    "restingHr": 74,
+    "bpSystolic": 146,
+    "bpDiastolic": 93,
+    "ecgNotes": "Normal sinus rhythm. No acute changes.",
+    "arterialStiffness": 8.4
+  },
+  "blood": {
+    "ldl": 3.4,
+    "hdl": 1.2,
+    "triglycerides": 1.6,
+    "hba1c": 36,
+    "crp": 1.8,
+    "fastingGlucose": 5.4
+  },
+  "body": { "visceralFatIndex": 11, "bodyFatPct": 27, "gripStrengthKg": 38 },
+  "wearables": { "avgSteps": 6400, "avgSleepHrs": 6.4, "hrv": 38 }
+}

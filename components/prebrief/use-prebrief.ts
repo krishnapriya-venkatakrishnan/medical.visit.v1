@@ -223,6 +223,7 @@ export function usePreBrief(memberId: string) {
 
   return {
     prebrief,
+    raw: response?.raw ?? null,
     rejected: response?.rejected ?? EMPTY_REJECTED,
     generated: response?.generated ?? false,
     isLoading: prebriefQuery.isPending,

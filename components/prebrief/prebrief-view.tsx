@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import type { Member } from "@/lib/types";
 import { usePreBrief } from "./use-prebrief";
+import { AiResponseModal } from "./ai-response-modal";
 import { DeltasSection } from "./deltas-section";
 import { FindingsSection } from "./findings-section";
 import { GuidanceSection } from "./guidance-section";
@@ -14,6 +16,7 @@ import { ErrorPanel } from "@/components/ui/error-panel";
 
 export function PreBriefView({ member }: { member: Member }) {
   const pb = usePreBrief(member.id);
+  const [showAiResponse, setShowAiResponse] = useState(false);
 
   return (
     <main className="flex-1 bg-linear-to-b from-white to-icy">
@@ -50,9 +53,22 @@ export function PreBriefView({ member }: { member: Member }) {
                 <span className="sr-only">AI readiness summary: </span>
                 {pb.prebrief.headline}
               </p>
+              {pb.raw ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAiResponse(true)}
+                  className="mt-3 rounded-control border border-provisional-border bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:border-accent/40"
+                >
+                  View full AI response
+                </button>
+              ) : null}
             </aside>
           ) : null}
         </div>
+
+        {showAiResponse && pb.raw ? (
+          <AiResponseModal raw={pb.raw} onClose={() => setShowAiResponse(false)} />
+        ) : null}
 
         {pb.isLoading ? (
           <PreBriefSkeleton />

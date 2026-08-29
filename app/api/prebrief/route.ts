@@ -4,14 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getMemberById } from "@/lib/fixtures";
 import { getSamplePreBrief } from "@/lib/fixtures/sample-prebriefs";
 import { generatePreBrief, PreBriefGenerationError } from "@/lib/ai/prebrief";
-import {
-  reconcileDeltas,
-  reconcileFindings,
-  type ReconciledDelta,
-  type ReconciledFinding,
-} from "@/lib/reconcile";
-import { judgeObservation } from "@/lib/ai/judge";
-import type { DeltaReconciliation, Member, PreBrief, Reconciliation } from "@/lib/types";
+import { reconcileResponse } from "@/lib/reconcile-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +25,9 @@ const BodySchema = z.object({ memberId: z.string().min(1) });
  *
  * `generated: false` means no ANTHROPIC_API_KEY, so the built-in sample stands in
  * for the model output (it is still reconciled - the sample deliberately
- * includes a finding that fails, so the tray is populated in the demo).
+ * includes a finding that fails, so the tray is populated in the demo). This is
+ * the REGRESSION path: hardcoded synthetic members. The live-only, input-only
+ * path is POST /api/demo/prebrief.
  *
  * The key is only ever read here, server-side.
  */
@@ -79,65 +74,4 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
-}
-
-async function reconcileResponse(prebrief: PreBrief, member: Member) {
-  const { clinical, rejected } = reconcileFindings(prebrief.findings, member);
-  const deltas = reconcileDeltas(prebrief.deltas, member);
-
-  // Advisory judge for observational claims only (spec section 4.5). It can move
-  // a verdict from grounded to flagged, never the other way.
-  await Promise.all(
-    clinical.map(async (item) => {
-      if (item.finding.claim.kind !== "observation") return;
-      const check = await judgeObservation(item.finding.claim, member);
-      item.reconciliation.checks.push(check);
-      if (!check.passed && item.reconciliation.verdict === "grounded") {
-        item.reconciliation.verdict = "flagged";
-      }
-    }),
-  );
-
-  const reconciliations: Record<string, Reconciliation | DeltaReconciliation> = {};
-  for (const { finding, reconciliation } of [...clinical, ...rejected]) {
-    reconciliations[finding.id] = reconciliation;
-  }
-  for (const { delta, reconciliation } of [...deltas.grounded, ...deltas.rejected]) {
-    reconciliations[delta.id] = reconciliation;
-  }
-
-  return {
-    prebrief: {
-      ...prebrief,
-      deltas: deltas.grounded.map((d) => d.delta),
-      findings: clinical.map((c) => c.finding),
-    },
-    reconciliations,
-    rejected: [...rejected.map(serialiseRejectedFinding), ...deltas.rejected.map(serialiseRejectedDelta)],
-  };
-}
-
-function firstFailure(checks: { name: string; detail: string; passed: boolean }[]) {
-  const failed = checks.find((c) => !c.passed);
-  return failed ? { name: failed.name, detail: failed.detail } : null;
-}
-
-function serialiseRejectedFinding({ finding, reconciliation }: ReconciledFinding) {
-  return {
-    kind: "finding" as const,
-    id: finding.id,
-    title: finding.title,
-    claim: finding.claim,
-    proposedTier: finding.proposedTier,
-    failedCheck: firstFailure(reconciliation.checks),
-  };
-}
-
-function serialiseRejectedDelta({ delta, reconciliation }: ReconciledDelta) {
-  return {
-    kind: "delta" as const,
-    id: delta.id,
-    title: delta.metric,
-    failedCheck: firstFailure(reconciliation.checks),
-  };
 }
