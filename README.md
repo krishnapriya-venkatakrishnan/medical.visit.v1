@@ -108,6 +108,10 @@ The screen shows the process as four steps (input parsed -> shape validated ->
 pre-brief generated -> claims reconciled), each marked pending / active / done /
 failed, plus an overall Idle / Running / Done / Stopped status.
 
+`examples/first-visit-scan.json` is a ready example to upload: a first visit with
+blood pressure out of range (146 / 93, an elevated tier) over otherwise
+watch-level markers.
+
 The result then carries the same clinician-in-the-loop review as the fixture
 flow: accept / edit / dismiss each finding, a sign-off gate that stays inert
 until every finding is resolved, and, once signed off, a member debrief drafted
