@@ -7,10 +7,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/demo/debrief  <FinalisedPreBrief>  ->  { debrief, generated: true, generatedAt }
+ * POST /api/brief/debrief  <FinalisedPreBrief>  ->  { debrief, generated: true, generatedAt }
  *
- * The Demo tab's debrief step, run after the brief is signed off. Live-only,
- * like POST /api/demo/prebrief: no ANTHROPIC_API_KEY means 503, never a template
+ * The Brief tab's debrief step, run after the brief is signed off. Live-only,
+ * like POST /api/brief/prebrief: no ANTHROPIC_API_KEY means 503, never a template
  * stand-in. The uploaded scan has no member name, so the draft is addressed
  * generically ("Hi there,").
  *
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
-      { error: "No ANTHROPIC_API_KEY is configured. The Demo tab drafts the debrief live only." },
+      { error: "No ANTHROPIC_API_KEY is configured. The Brief tab drafts the debrief live only." },
       { status: 503 },
     );
   }
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       );
     }
     console.error(
-      "[api/demo/debrief]",
+      "[api/brief/debrief]",
       error instanceof DebriefGenerationError ? error.cause ?? error : error,
     );
     return NextResponse.json(

@@ -50,7 +50,7 @@ Tokens live in `app/globals.css` as CSS variables, exposed to Tailwind via
 
 | Token | Value | Role |
 | --- | --- | --- |
-| `--bg` | `#F6F4EF` | warm bone, app background |
+| `--bg` | `#E3EDF4` | cool pale icy blue, app background (= `--icy`) |
 | `--surface` | `#FFFFFF` | cards, panels (soft low shadow) |
 | `--ink` | `#20201D` | primary text; = clinician-confirmed state |
 | `--muted` | `#6B6A64` | secondary text, audit lines |

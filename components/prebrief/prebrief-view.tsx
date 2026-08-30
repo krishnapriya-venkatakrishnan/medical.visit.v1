@@ -11,6 +11,7 @@ import { GuidanceSection } from "./guidance-section";
 import { SignOffBar } from "./sign-off-bar";
 import { AuditTable } from "@/components/audit/audit-table";
 import { CaughtTray } from "./caught-tray";
+import { ReconcilerLegend } from "./reconciler-legend";
 import { PreBriefSkeleton } from "./prebrief-skeleton";
 import { ErrorPanel } from "@/components/ui/error-panel";
 
@@ -82,6 +83,10 @@ export function PreBriefView({ member }: { member: Member }) {
           </div>
         ) : pb.prebrief ? (
           <>
+            <div className="mt-10">
+              <ReconcilerLegend />
+            </div>
+
             <div className="mt-10 grid items-start gap-x-8 gap-y-12 md:grid-cols-2">
               <DeltasSection deltas={pb.prebrief.deltas} firstVisit={member.firstVisit} />
 

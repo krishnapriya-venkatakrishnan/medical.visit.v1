@@ -27,7 +27,7 @@ const BodySchema = z.object({ memberId: z.string().min(1) });
  * for the model output (it is still reconciled - the sample deliberately
  * includes a finding that fails, so the tray is populated in the demo). This is
  * the REGRESSION path: hardcoded synthetic members. The live-only, input-only
- * path is POST /api/demo/prebrief.
+ * path is POST /api/brief/prebrief.
  *
  * The key is only ever read here, server-side.
  */

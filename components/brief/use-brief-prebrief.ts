@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Demo tab state: one uploaded scan in, one live reconciled pre-brief out, then
- * the same clinician-in-the-loop review as the Regression flow.
+ * Brief tab state: one uploaded scan in, one live reconciled pre-brief out, then
+ * the same clinician-in-the-loop review as the fixture flow.
  *
  * There is NO cache key and NO fallback. The pre-brief is only ever what the
  * model produced for this exact input, run through the deterministic reconciler.
@@ -17,18 +17,18 @@ import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   ApiError,
-  runDemoDebrief,
-  runDemoPreBrief,
+  runBriefDebrief,
+  runBriefPreBrief,
   type DebriefResponse,
   type PreBriefResponse,
 } from "@/lib/api";
 import type { ClinicianDecision, ResolvedFinding } from "@/components/prebrief/use-prebrief";
 import type { Debrief, FinalisedPreBrief, Reconciliation, RiskTier } from "@/lib/types";
 
-/** Thrown before anything reaches the server: the pasted text is not JSON. */
+/** Thrown before anything reaches the server: the file content is not JSON. */
 class NotJsonError extends Error {
   constructor() {
-    super("That is not valid JSON. Paste the contents of a scan .json file.");
+    super("That is not valid JSON. Choose a scan .json file.");
     this.name = "NotJsonError";
   }
 }
@@ -70,7 +70,7 @@ function resolveFindings(response: PreBriefResponse, decisions: DecisionMap): Re
     );
 }
 
-export function useDemoPreBrief() {
+export function useBriefPreBrief() {
   const mutation = useMutation<PreBriefResponse, Error, string>({
     mutationFn: (rawText: string) => {
       let scan: unknown;
@@ -79,12 +79,12 @@ export function useDemoPreBrief() {
       } catch {
         throw new NotJsonError();
       }
-      return runDemoPreBrief(scan);
+      return runBriefPreBrief(scan);
     },
   });
 
   const debriefMutation = useMutation<DebriefResponse, Error, FinalisedPreBrief>({
-    mutationFn: (finalised) => runDemoDebrief(finalised),
+    mutationFn: (finalised) => runBriefDebrief(finalised),
   });
 
   const [decisions, setDecisions] = useState<DecisionMap>({});
@@ -144,10 +144,10 @@ export function useDemoPreBrief() {
     const step4: StepState = succeeded ? "done" : running ? "active" : "pending";
 
     return [
-      { label: "Input parsed", detail: "The pasted or uploaded text is valid JSON.", state: step1 },
+      { label: "Input parsed", detail: "The uploaded file is valid JSON.", state: step1 },
       {
         label: "Shape validated",
-        detail: "The input is a well-formed Scan (ScanSchema). Rejected here on a 400.",
+        detail: "The input is a well-formed `Scan` (`ScanSchema`). Rejected here on a 400.",
         state: step2,
       },
       {
@@ -157,7 +157,7 @@ export function useDemoPreBrief() {
       },
       {
         label: "Claims reconciled",
-        detail: "Every finding is tied back to the uploaded scan by lib/reconcile.ts.",
+        detail: "Every finding is tied back to the uploaded scan by `lib/reconcile.ts`.",
         state: step4,
       },
     ];

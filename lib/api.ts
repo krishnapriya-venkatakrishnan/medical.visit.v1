@@ -7,7 +7,7 @@
  * Two pre-brief paths, deliberately distinct:
  *   - `fetchPreBrief`     REGRESSION. Hardcoded synthetic members. Falls back to
  *                         a bundled sample pre-brief when no API key is set.
- *   - `runDemoPreBrief`   DEMO. An uploaded scan in, a live reconciled result
+ *   - `runBriefPreBrief`   BRIEF. An uploaded scan in, a live reconciled result
  *                         out. Never a sample: no key -> a clear error, not a
  *                         stand-in result.
  */
@@ -104,19 +104,19 @@ export function fetchDebrief(finalised: FinalisedPreBrief): Promise<DebriefRespo
 }
 
 /**
- * DEMO path. `scan` is whatever the user pasted / uploaded, parsed to an object.
+ * BRIEF path. `scan` is whatever the user pasted / uploaded, parsed to an object.
  * The server validates it against `ScanSchema` (400 with the first Zod issue on
  * failure), then generates and reconciles a pre-brief from that scan alone.
- * With no API key the server returns 503: the Demo tab never shows a sample.
+ * With no API key the server returns 503: the Brief tab never shows a sample.
  */
-export function runDemoPreBrief(scan: unknown): Promise<PreBriefResponse> {
-  return postJson<PreBriefResponse>("/api/demo/prebrief", scan);
+export function runBriefPreBrief(scan: unknown): Promise<PreBriefResponse> {
+  return postJson<PreBriefResponse>("/api/brief/prebrief", scan);
 }
 
 /**
- * DEMO debrief. Posts the pre-brief as the clinician signed it off and gets a
- * member-facing draft back. Live-only, like `runDemoPreBrief`: no key -> 503.
+ * BRIEF debrief. Posts the pre-brief as the clinician signed it off and gets a
+ * member-facing draft back. Live-only, like `runBriefPreBrief`: no key -> 503.
  */
-export function runDemoDebrief(finalised: FinalisedPreBrief): Promise<DebriefResponse> {
-  return postJson<DebriefResponse>("/api/demo/debrief", finalised);
+export function runBriefDebrief(finalised: FinalisedPreBrief): Promise<DebriefResponse> {
+  return postJson<DebriefResponse>("/api/brief/debrief", finalised);
 }

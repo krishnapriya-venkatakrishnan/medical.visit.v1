@@ -55,24 +55,27 @@ Three layers, kept strictly separate:
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Deterministic unit tests (vitest). No network, no API key read. Covers the reconciler verdict-by-verdict (`tests/reconcile.*`) and the model *plumbing* with a fake `createMessage` - JSON parsing, one retry, schema rejection, and both route surfaces: the Regression route's 400 / 404 / 429 / 502 / sample paths and the Demo route's 400 (shape) / 503 (no key) / 502 / live paths (`tests/*.plumbing`, `tests/*.route`). |
+| `npm test` | Deterministic unit tests (vitest). No network, no API key read. Covers the reconciler verdict-by-verdict (`tests/reconcile.*`), the Harness-suite catalog (`tests/harness-catalog.test.ts`, the same cases the tab renders), and the model *plumbing* with a fake `createMessage` - JSON parsing, one retry, schema rejection, and both route surfaces: the fixture route's 400 / 404 / 429 / 502 / sample paths and the Brief route's 400 (shape) / 503 (no key) / 502 / live paths (`tests/*.plumbing`, `tests/*.route`). |
 | `npm run eval` | The adversarial reconciler harness. A clean set plus one poisoned item per failure mode (fabricated number, flipped trend, hallucinated metric, over-escalated tier, unbacked prose number, unbacked metric name, fabricated delta `currentValue`). Reports `catch rate 100% (7/7)` / `false-rejection rate 0% (0/6)`. |
 | `npm run eval:model` | A **live** model-quality eval. Makes one real Anthropic call per fixture member and asserts *properties* (output passes the schema; every generated finding reconciles to grounded or flagged, never rejected; a first visit has no deltas or trend claims; every `claim.metric` resolves in the record). Prints `skipped (no API key)` and exits 0 when `ANTHROPIC_API_KEY` is unset. |
 
 `tests/reconcile.*` and `npm run eval` share one synthetic record
-(`tests/fixtures.ts`) so unit and eval data cannot drift.
+(`tests/fixtures.ts`) so unit and eval data cannot drift. The **Harness suite**
+tab (below) imports the same `evals/cases.ts` and runs them live in the browser.
 
-## Two tabs
+## Four tabs
 
-A side nav splits the app in two:
+A side nav has four entries. The frozen fixture flow (Member Board, Pre-Brief,
+Debrief) lives at `/` and is reached from the workspace title above the tabs.
 
-- **Regression** (`/`, `/members/[id]`, `/members/[id]/debrief`) - the hardcoded
-  synthetic members. This is the frozen suite the reconciler eval runs against.
-- **Demo** (`/demo`) - upload one scan, get a live reconciled result. No
-  hardcoded input, no hardcoded result: a scan in, a pre-brief out, or a clear
-  status saying why it could not run.
+| Tab | Route | What it is |
+| --- | --- | --- |
+| **Brief** | `/brief` | Upload one scan file, get a live reconciled pre-brief, then the full clinician-in-the-loop review and a drafted debrief. |
+| **Harness suite** | `/harness` | The test catalog. The deterministic reconciler cases run live in the browser; the model-facing cases are documented. |
+| **Reconciler** | `/reconciler` | An interactive playground for `lib/reconcile.ts` alone. Edit a finding, pick a record, reconcile client-side, see every check. No model. |
+| **Decisions** | `/decisions` | Scope, what is deliberately out, and the rationale behind the architecture. |
 
-### Regression screens
+### The fixture flow (`/`, `/members/[id]`, `/members/[id]/debrief`)
 
 | Screen | What it does |
 | --- | --- |
@@ -80,14 +83,18 @@ A side nav splits the app in two:
 | **Pre-Brief** (`/members/[id]`) | What changed since last visit (reconciled deltas); risk-ranked findings, each reconciled, with a provenance disclosure and accept / edit / dismiss controls; the "Caught by reconciler" tray (rejected findings and changes); talking points and a draft plan; the sign-off gate. |
 | **Debrief** (`/members/[id]/debrief`) | A member-facing draft in a calm, plain-language voice. The clinician edits inline; the diff between the AI draft and the sent version is shown as the flywheel teaching signal. An audit trail panel lists every event. |
 
-### Demo tab
+`POST /api/prebrief` serves these. With no `ANTHROPIC_API_KEY` it returns the
+reconciled built-in sample (`generated: false`) so the flow is fully navigable
+offline; with a key it generates live.
 
-`POST /api/demo/prebrief` takes a `Scan` in the body and is input-only,
+### Brief tab
+
+`POST /api/brief/prebrief` takes a `Scan` in the body and is input-only,
 live-only:
 
 - not a shape-valid `Scan` (`ScanSchema`) -> **400** with the first Zod issue,
-  with or without a key (`demo-scan-malformed.json` demonstrates this);
-- no `ANTHROPIC_API_KEY` -> **503**. The Demo tab never serves a sample; it says
+  with or without a key;
+- no `ANTHROPIC_API_KEY` -> **503**. The Brief tab never serves a sample; it says
   so plainly rather than showing a stale result;
 - otherwise the scan becomes an ephemeral first-visit member (one scan, no
   history, so no deltas or trend claims), a pre-brief is generated from it, and
@@ -99,26 +106,38 @@ against. The record is never extracted from unstructured text by a model.
 
 The screen shows the process as four steps (input parsed -> shape validated ->
 pre-brief generated -> claims reconciled), each marked pending / active / done /
-failed, plus an overall Idle / Running / Done / Stopped status. Bundled synthetic
-scans live in `public/sample-scans/` (clean / borderline / malformed / a
-first-visit scan with out-of-range blood pressure).
+failed, plus an overall Idle / Running / Done / Stopped status.
 
-The result then carries the same clinician-in-the-loop review as Regression:
-accept / edit / dismiss each finding, a sign-off gate that stays inert until every
-finding is resolved, and, once signed off, a member debrief drafted live from the
-finalised brief (`POST /api/demo/debrief`, also live-only: no key -> 503). The
-debrief draft is editable inline, with the word-level flywheel diff against the
-AI version. A **Mark complete** button ends the run and reloads
-the tab for the next scan.
+The result then carries the same clinician-in-the-loop review as the fixture
+flow: accept / edit / dismiss each finding, a sign-off gate that stays inert
+until every finding is resolved, and, once signed off, a member debrief drafted
+live from the finalised brief (`POST /api/brief/debrief`, also live-only: no key
+-> 503). The debrief draft is editable inline, with the word-level flywheel diff
+against the AI version. A **Mark complete** button ends the run and reloads the
+tab for the next scan.
+
+### Harness suite tab
+
+Two parts. **Part A** imports `evals/cases.ts` (the same clean and adversarial
+findings and deltas as `npm run eval`, not a copy) and runs the real
+`reconcile()` / `reconcileDelta()` against the eval record client-side, showing
+per case the expected verdict, the actual verdict, a pass/fail badge, and the
+per-check breakdown on expand, plus a live catch rate and false-rejection rate.
+`tests/harness-catalog.test.ts` runs the identical function, so the tab cannot
+show a green that CI would call red. **Part B** is a documented catalog
+(`lib/harness-catalog.ts`) of the model-facing cases: plumbing (mocked, runs in
+`npm test`) and quality (live, `npm run eval:model`), each with a Given / Expect
+line and a note on why it matters.
 
 **The synthetic fixtures (`lib/fixtures/`) and the reconciler eval (`evals/`,
-`tests/fixtures.ts`) are a frozen regression suite.** The Demo tab is stateless
+`tests/fixtures.ts`) are a frozen regression suite.** The Brief tab is stateless
 and never touches them.
 
 ## How the AI is wired in
 
-Both tabs share one server-side reconcile step (`lib/reconcile-response.ts`); the
-model is called by `lib/ai/prebrief.ts` either way. The pre-brief and debrief are
+The fixture route and the Brief route share one server-side reconcile step
+(`lib/reconcile-response.ts`); the model is called by `lib/ai/prebrief.ts` either
+way. The pre-brief and debrief are
 generated live by the Anthropic API inside the
 backend (`lib/ai/prebrief.ts`, `lib/ai/debrief.ts`), not by any client code. Each
 finding's factual claim is emitted in a structured shape (`level` | `trend` |
@@ -184,27 +203,29 @@ TanStack Query · Zod · `@anthropic-ai/sdk` (server-side only). Deploy target: 
 
 ```
 app/
-  page.tsx                     Member Board (Regression tab)
-  members/[memberId]/          Pre-Brief screen
-  members/[memberId]/debrief/  Debrief screen
-  demo/                        Demo tab: upload a scan, live reconciled result
-  api/prebrief/ api/debrief/   Regression route handlers (Anthropic calls, Zod validation)
-  api/demo/prebrief/           Demo route handler: ScanSchema gate, live-only, no sample
+  page.tsx                     Member Board (the fixture flow, reached from the workspace title)
+  members/[memberId]/          Pre-Brief screen  ·  members/[memberId]/debrief/  Debrief screen
+  brief/                       Brief tab: upload a scan, live reconciled pre-brief + review
+  harness/                     Harness suite tab: deterministic cases run live + model catalog
+  reconciler/                  Reconciler tab: interactive lib/reconcile.ts playground, no model
+  decisions/                   Decisions tab: scope and rationale (static)
+  api/prebrief/ api/debrief/   Fixture-flow route handlers (Anthropic calls, Zod validation)
+  api/brief/prebrief/ api/brief/debrief/   Brief route handlers: ScanSchema gate, live-only, no sample
 components/
-  app-nav.tsx                  the Regression / Demo side nav
-  member-board/ prebrief/ debrief/ demo/ audit/ ui/
+  app-nav.tsx                  the four-tab side nav
+  member-board/ prebrief/ debrief/ brief/ harness/ reconciler/ decisions/ audit/ ui/
 lib/
   schemas.ts                   Zod schemas: the source of truth for the data model and AI I/O
   types.ts                     types, all inferred from the schemas
-  reconcile.ts                 the deterministic reconciler (pure, synchronous)
+  reconcile.ts                 the deterministic reconciler (pure, synchronous, no server-only)
   reconcile-response.ts        the shared server step: reconcile + shape for the client
+  harness-run.ts               scores the eval cases; shared by the Harness tab and its test
+  harness-catalog.ts           documented model-facing test cases (pure data)
   reference-ranges.ts          illustrative bands + deriveTier()
   ai/                          the AI boundary, SERVER ONLY (prebrief, debrief, judge, client)
   fixtures/                    three synthetic members + sample pre-briefs (frozen)
   diff.ts                      word-level diff for the flywheel signal
   audit-cache.ts               the append-only audit log
-public/
-  sample-scans/                synthetic scans for the Demo tab (clean / borderline / malformed)
 evals/                         reconciler harness (npm run eval) + live model eval (npm run eval:model)
 tests/                          deterministic unit tests (npm test); tests/fixtures.ts is shared with evals/
 ```

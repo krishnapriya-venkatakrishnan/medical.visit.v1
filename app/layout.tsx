@@ -12,7 +12,7 @@ const hankenGrotesk = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Brief - Clinician Workspace",
+  title: "Dashboard - Clinician Workspace",
   description:
     "Prototype of an AI pre-brief → clinician-in-the-loop review → drafted member debrief. Synthetic data only. Not a medical device.",
 };

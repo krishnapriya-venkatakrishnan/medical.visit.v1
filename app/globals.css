@@ -9,11 +9,11 @@
 --------------------------------------------------------------------------- */
 :root {
   /* Surfaces & structure */
-  --bg: #f6f4ef; /* warm bone - app background */
+  --bg: #e3edf4; /* cool pale icy blue - app background */
   --surface: #ffffff; /* cards, panels */
-  --surface-sunken: #efece4; /* wells, disclaimer bar, data blocks */
-  --hairline: #e4e0d6; /* borders, dividers */
-  --icy: #e3edf4; /* cool pale blue - the Member Board gradient foot */
+  --surface-sunken: #eef1f0; /* wells, data blocks (cool-neutral) */
+  --hairline: #dde3e2; /* borders, dividers */
+  --icy: #e3edf4; /* cool pale blue - gradient foot; = app background */
 
   /* Text */
   --ink: #20201d; /* primary text; also = clinician-confirmed state */

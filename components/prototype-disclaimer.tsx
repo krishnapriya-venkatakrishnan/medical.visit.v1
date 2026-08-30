@@ -5,7 +5,7 @@
  */
 export function PrototypeDisclaimer() {
   return (
-    <div className="w-full border-b border-hairline bg-surface-sunken">
+    <div className="w-full border-b border-hairline bg-icy">
       <p className="mx-auto max-w-6xl px-6 py-1.5 text-center text-xs text-muted">
         Prototype · synthetic data · not a medical device
       </p>

@@ -6,13 +6,13 @@ vi.mock("@/lib/ai/prebrief", async (importOriginal) => {
   return { ...actual, generatePreBrief: vi.fn() };
 });
 
-import { POST } from "@/app/api/demo/prebrief/route";
+import { POST } from "@/app/api/brief/prebrief/route";
 import { generatePreBrief } from "@/lib/ai/prebrief";
 import { scanTemplate } from "./fixtures";
 import type { PreBrief } from "@/lib/types";
 
 const req = (body: unknown) =>
-  new Request("http://test/api/demo/prebrief", {
+  new Request("http://test/api/brief/prebrief", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -53,7 +53,7 @@ afterEach(() => {
   vi.mocked(generatePreBrief).mockReset();
 });
 
-describe("POST /api/demo/prebrief", () => {
+describe("POST /api/brief/prebrief", () => {
   it("a malformed scan is a 400 with the first Zod issue, even with no API key", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const bad = scanTemplate("2026-08-29") as Record<string, unknown>;

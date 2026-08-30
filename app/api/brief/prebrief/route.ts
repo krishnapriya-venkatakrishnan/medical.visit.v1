@@ -9,10 +9,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/demo/prebrief   <Scan>
+ * POST /api/brief/prebrief   <Scan>
  *   -> { prebrief, reconciliations, rejected, generated: true, generatedAt }
  *
- * The DEMO path: input only, live result only. Distinct from POST /api/prebrief,
+ * The BRIEF path: input only, live result only. Distinct from POST /api/prebrief,
  * which serves hardcoded synthetic members and falls back to a bundled sample.
  *
  *   - 400  the body is not a shape-valid Scan  -> first Zod issue (the visible
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "No ANTHROPIC_API_KEY is configured on the server. The Demo tab generates live only and never shows a sample result. Use the Regression tab to see the reconciler on hardcoded data.",
+          "No ANTHROPIC_API_KEY is configured on the server. The Brief tab generates live only and never shows a sample result. Use the Regression tab to see the reconciler on hardcoded data.",
       },
       { status: 503 },
     );
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       );
     }
     console.error(
-      "[api/demo/prebrief]",
+      "[api/brief/prebrief]",
       error instanceof PreBriefGenerationError ? error.cause ?? error : error,
     );
     return NextResponse.json(

@@ -4,26 +4,43 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
- * Persistent side navigation. Two tabs, deliberately separate:
+ * Persistent side navigation. Four sibling tabs, none nested under another:
  *
- *   Regression  hardcoded synthetic members + bundled sample pre-briefs. Frozen;
- *               this is what the reconciler eval runs against.
- *   Demo        upload one scan, get a live reconciled result. No hardcoded
- *               input, no hardcoded result: input in, result out, or a clear
- *               status if it cannot run.
+ *   Brief          upload one scan, get a live reconciled pre-brief, then the
+ *                  full clinician-in-the-loop review and debrief.
+ *   Harness suite  the test catalog. The deterministic reconciler cases run
+ *                  live in the browser; the model-facing cases are documented.
+ *   Reconciler     an interactive playground for lib/reconcile.ts alone: edit a
+ *                  finding, reconcile it client-side, see every check. No model.
+ *   Decisions      scope and the rationale behind the architecture.
+ *
+ * The Member Board and its Pre-Brief / Debrief screens (the frozen fixture flow)
+ * live at "/" and are reached from the workspace title above the tabs.
  */
 const TABS = [
   {
-    href: "/",
-    label: "Regression",
-    hint: "Frozen synthetic members",
-    isActive: (path: string) => path === "/" || path.startsWith("/members"),
+    href: "/brief",
+    label: "Brief",
+    hint: "Upload a scan, live pre-brief",
+    isActive: (path: string) => path === "/brief" || path.startsWith("/brief/"),
   },
   {
-    href: "/demo",
-    label: "Demo",
-    hint: "Upload a scan, live result",
-    isActive: (path: string) => path === "/demo" || path.startsWith("/demo/"),
+    href: "/harness",
+    label: "Harness suite",
+    hint: "The test catalog, run live",
+    isActive: (path: string) => path.startsWith("/harness"),
+  },
+  {
+    href: "/reconciler",
+    label: "Reconciler",
+    hint: "Interactive, no model",
+    isActive: (path: string) => path.startsWith("/reconciler"),
+  },
+  {
+    href: "/decisions",
+    label: "Decisions",
+    hint: "Scope and rationale",
+    isActive: (path: string) => path.startsWith("/decisions"),
   },
 ];
 
@@ -32,12 +49,12 @@ export function AppNav() {
 
   return (
     <aside className="w-full shrink-0 border-b border-hairline bg-surface md:w-60 md:border-b-0 md:border-r">
-      <div className="px-5 py-6">
-        <p className="text-sm font-semibold tracking-tight text-ink">Brief</p>
+      <Link href="/" className="block px-5 py-5 hover:bg-icy/50">
+        <p className="text-sm text-ink">Dashboard</p>
         <p className="mt-0.5 text-xs text-muted">Clinician workspace</p>
-      </div>
+      </Link>
 
-      <nav aria-label="Sections" className="flex gap-1 px-3 pb-4 md:flex-col">
+      <nav aria-label="Sections" className="flex md:flex-col">
         {TABS.map((tab) => {
           const active = tab.isActive(pathname);
           return (
@@ -45,10 +62,8 @@ export function AppNav() {
               key={tab.href}
               href={tab.href}
               aria-current={active ? "page" : undefined}
-              className={`flex-1 rounded-control px-3 py-2 transition-colors md:flex-none ${
-                active
-                  ? "bg-accent-tint text-accent"
-                  : "text-muted hover:bg-surface-sunken hover:text-ink"
+              className={`flex-1 px-5 py-2.5 transition-colors md:flex-none ${
+                active ? "bg-icy text-ink" : "text-muted hover:bg-icy/50 hover:text-ink"
               }`}
             >
               <span className={`block text-sm ${active ? "font-medium" : ""}`}>{tab.label}</span>

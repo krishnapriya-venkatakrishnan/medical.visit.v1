@@ -5,12 +5,12 @@ vi.mock("@/lib/ai/debrief", async (importOriginal) => {
   return { ...actual, generateDebrief: vi.fn() };
 });
 
-import { POST } from "@/app/api/demo/debrief/route";
+import { POST } from "@/app/api/brief/debrief/route";
 import { generateDebrief } from "@/lib/ai/debrief";
 import type { Debrief } from "@/lib/types";
 
 const req = (body: unknown) =>
-  new Request("http://test/api/demo/debrief", {
+  new Request("http://test/api/brief/debrief", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -50,7 +50,7 @@ afterEach(() => {
   vi.mocked(generateDebrief).mockReset();
 });
 
-describe("POST /api/demo/debrief", () => {
+describe("POST /api/brief/debrief", () => {
   it("a body that is not a finalised pre-brief is a 400", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-test");
     const res = await POST(req({ memberId: "demo" }));

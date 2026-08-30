@@ -4,7 +4,7 @@
  * observational claims, and shape the result for the client.
  *
  * Used by both `POST /api/prebrief` (fixture members, with a sample fallback when
- * no API key) and `POST /api/demo/prebrief` (an uploaded scan, live only, no
+ * no API key) and `POST /api/brief/prebrief` (an uploaded scan, live only, no
  * fallback). The reconciler is the same in both paths - that is the point.
  */
 
